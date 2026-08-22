@@ -273,10 +273,25 @@
           </div>
         </div>
 
+        <!-- Bulk Actions Bar -->
+        <div id="bulk-actions-bar" class="bulk-actions-bar" style="display: none;">
+          <div class="bulk-info">
+            <span class="bulk-icon">✓</span>
+            <span><strong id="selected-count">0</strong> assets selected</span>
+          </div>
+          <div class="bulk-btns">
+            <button id="bulk-delete-btn" class="btn btn-sm btn-danger">🗑️ Delete Selected (<span id="btn-delete-count">0</span>)</button>
+            <button id="bulk-deselect-btn" class="btn btn-sm">✕ Clear Selection</button>
+          </div>
+        </div>
+
         <div class="table-container" id="table-wrapper">
           <table id="portfolio-table">
             <thead>
               <tr>
+                <th style="width: 44px; text-align: center;">
+                  <input type="checkbox" id="select-all-checkbox" class="custom-checkbox" title="Select All Assets" />
+                </th>
                 <th>Asset Details</th>
                 <th>Key Specifications</th>
                 <th>Invested Capital</th>

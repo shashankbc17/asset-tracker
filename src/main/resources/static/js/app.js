@@ -663,15 +663,48 @@ function renderAllocation(allocations) {
   });
 }
 
+let selectedAssetIds = new Set();
+
+function updateBulkActionBar() {
+  const bar = document.getElementById('bulk-actions-bar');
+  const countEl = document.getElementById('selected-count');
+  const btnCountEl = document.getElementById('btn-delete-count');
+  const selectAllCb = document.getElementById('select-all-checkbox');
+
+  if (!bar) return;
+
+  const count = selectedAssetIds.size;
+  if (count > 0) {
+    bar.style.display = 'flex';
+    if (countEl) countEl.innerText = count;
+    if (btnCountEl) btnCountEl.innerText = count;
+  } else {
+    bar.style.display = 'none';
+  }
+
+  // Update master select-all checkbox
+  const visibleCheckboxes = document.querySelectorAll('.row-checkbox');
+  if (visibleCheckboxes.length > 0 && selectAllCb) {
+    const allChecked = Array.from(visibleCheckboxes).every(cb => cb.checked);
+    selectAllCb.checked = allChecked;
+    selectAllCb.indeterminate = !allChecked && count > 0;
+  } else if (selectAllCb) {
+    selectAllCb.checked = false;
+    selectAllCb.indeterminate = false;
+  }
+}
+
 function renderTable(items) {
   const tbody = document.getElementById('portfolio-list');
   tbody.innerHTML = '';
 
   // Strict check: if not signed in, show Locked Screen
   if (!currentUser) {
+    selectedAssetIds.clear();
+    updateBulkActionBar();
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="empty-state" style="padding: 60px 20px;">
+        <td colspan="7" class="empty-state" style="padding: 60px 20px;">
           <div class="empty-state-icon">🔒</div>
           <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 8px;">Private &amp; Secure Portfolio Vault</h3>
           <p style="color: var(--text-muted); max-width: 480px; margin: 0 auto 16px;">Please click <strong>Sign in with Google</strong> in the top header to access your private wealth data.</p>
@@ -700,9 +733,11 @@ function renderTable(items) {
   });
 
   if (filtered.length === 0) {
+    selectedAssetIds.clear();
+    updateBulkActionBar();
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="empty-state">
+        <td colspan="7" class="empty-state">
           <div class="empty-state-icon">💼</div>
           <p>Your portfolio is currently empty. Add your first asset using the form on the left or click <strong>📂 Bulk CSV Import</strong>!</p>
         </td>
@@ -720,12 +755,18 @@ function renderTable(items) {
 
   filtered.forEach(({ asset, metrics }) => {
     const tr = document.createElement('tr');
+    const isSelected = selectedAssetIds.has(asset.id);
+    if (isSelected) tr.classList.add('row-selected');
+
     const tagClass = tagClassMap[asset.assetType] || 'tag-metals';
     const returnClass = metrics.profitable ? 'text-success' : 'text-danger';
     const returnSign = metrics.returnPct >= 0 ? '+' : '';
     const cleanImg = metrics.imagePath ? metrics.imagePath.replace(/^\//, '') : 'images/gold-bar.jpg';
 
     tr.innerHTML = `
+      <td class="cell-checkbox" style="text-align: center;">
+        <input type="checkbox" class="custom-checkbox row-checkbox" data-id="${asset.id}" ${isSelected ? 'checked' : ''} />
+      </td>
       <td>
         <div class="cell-asset">
           <div class="asset-thumb" title="${asset.name}">
@@ -757,12 +798,28 @@ function renderTable(items) {
       </td>
       <td>
         <div class="action-btns">
-          <button class="btn btn-sm edit-btn" data-id="${asset.id}">✏️ Edit</button>
-          <button class="btn btn-sm btn-danger delete-btn" data-id="${asset.id}">🗑️</button>
+          <button class="btn btn-sm edit-btn" data-id="${asset.id}" title="Edit asset">✏️ Edit</button>
+          <button class="btn btn-sm btn-danger delete-btn" data-id="${asset.id}" title="Delete asset">🗑️</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
+  });
+
+  // Checkbox listeners
+  tbody.querySelectorAll('.row-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const id = parseInt(cb.dataset.id);
+      const row = cb.closest('tr');
+      if (cb.checked) {
+        selectedAssetIds.add(id);
+        if (row) row.classList.add('row-selected');
+      } else {
+        selectedAssetIds.delete(id);
+        if (row) row.classList.remove('row-selected');
+      }
+      updateBulkActionBar();
+    });
   });
 
   tbody.querySelectorAll('.edit-btn').forEach(btn => {
@@ -771,6 +828,8 @@ function renderTable(items) {
   tbody.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteAsset(parseInt(btn.dataset.id)));
   });
+
+  updateBulkActionBar();
 }
 
 function editAsset(id) {
@@ -1090,6 +1149,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Cancel Edit
   document.getElementById('cancel-btn')?.addEventListener('click', resetForm);
+
+  // Select All Checkbox Handler
+  const selectAll = document.getElementById('select-all-checkbox');
+  if (selectAll) {
+    selectAll.addEventListener('change', () => {
+      const isChecked = selectAll.checked;
+      const visibleCheckboxes = document.querySelectorAll('.row-checkbox');
+      visibleCheckboxes.forEach(cb => {
+        const id = parseInt(cb.dataset.id);
+        const row = cb.closest('tr');
+        cb.checked = isChecked;
+        if (isChecked) {
+          selectedAssetIds.add(id);
+          if (row) row.classList.add('row-selected');
+        } else {
+          selectedAssetIds.delete(id);
+          if (row) row.classList.remove('row-selected');
+        }
+      });
+      updateBulkActionBar();
+    });
+  }
+
+  // Bulk Delete Button Handler
+  document.getElementById('bulk-delete-btn')?.addEventListener('click', () => {
+    if (!currentUser) return;
+    const count = selectedAssetIds.size;
+    if (count === 0) return;
+
+    if (!confirm(`Are you sure you want to permanently delete ${count} selected assets from your portfolio?`)) {
+      return;
+    }
+
+    let assets = getLocalAssets();
+    assets = assets.filter(a => !selectedAssetIds.has(a.id));
+    saveLocalAssets(assets);
+    selectedAssetIds.clear();
+    showToast(`🗑️ Successfully deleted ${count} selected assets!`, 'success');
+    loadPortfolio();
+  });
+
+  // Bulk Deselect Button Handler
+  document.getElementById('bulk-deselect-btn')?.addEventListener('click', () => {
+    selectedAssetIds.clear();
+    updateBulkActionBar();
+    renderTable(currentSummary?.items || []);
+  });
 
   // Start Auth & Initial Load
   initFirebase();
