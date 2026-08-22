@@ -1,0 +1,46 @@
+:root {
+  /* Metal Accents */
+  --gold-primary: #d4af37;
+  --gold-light: #fef08a;
+  --gold-border: #ca8a04;
+  --gold-gradient: linear-gradient(135deg, #fef08a 0%, #eab308 50%, #ca8a04 100%);
+
+  --silver-primary: #94a3b8;
+  --silver-light: #f1f5f9;
+  --silver-border: #64748b;
+  --silver-gradient: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 50%, #94a3b8 100%);
+
+  /* Base Colors & Neutrals */
+  --bg: #0f172a;
+  --bg-gradient: radial-gradient(circle at 10% 20%, #1e293b 0%, #0f172a 90%);
+  --surface: #1e293b;
+  --surface-card: #1e293b;
+  --surface-card-hover: #273549;
+  --border-color: #334155;
+  --border-light: #475569;
+
+  /* Typography */
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  /* Status Colors */
+  --success: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.15);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-bg: rgba(59, 130, 246, 0.15);
+
+  /* Elevation & Effects */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Precious Metals Portfolio Manager</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="app-title-group">
+        <h1>Precious Metals Portfolio</h1>
+        <span class="app-badge">Gold &amp; Silver Tracker</span>
+      </div>
+      <div class="rates-meta" id="sync-status">
+        Ready
+      </div>
+    </header>
+
+    <!-- Top Bar: Live Rates & CSV Tools -->
+    <section class="top-bar">
+      <div class="rate-inputs">
+        <div class="rate-card">
+          <label for="global-gold">22K Gold (₹/g)</label>
+          <div class="rate-input-wrapper">
+            <span class="currency-symbol">₹</span>
+            <input type="number" id="global-gold" class="rate-input gold-input" value="14900" step="10" />
+          </div>
+        </div>
+        <div class="rate-card">
+          <label for="global-silver">Silver (₹/g)</label>
+          <div class="rate-input-wrapper">
+            <span class="currency-symbol">₹</span>
+            <input type="number" id="global-silver" class="rate-input silver-input" value="240" step="1" />
+          </div>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-primary" id="sync-btn" title="Fetch live spot rates from market">
+          ⚡ Sync Fast Rates
+        </button>
+        <button class="btn" id="btn-template" title="Download sample CSV template">
+          📥 CSV Template
+        </button>
+        <button class="btn" id="btn-export" title="Export portfolio to CSV file">
+          📤 Export CSV
+        </button>
+        <button class="btn btn-success" id="btn-import" title="Upload CSV and append to portfolio">
+          📂 Bulk Append CSV
+        </button>
+        <input type="file" id="csv-file-input" accept=".csv" style="display: none;" />
+      </div>
+    </section>
+
+    <!-- Dashboard Metric Cards -->
+    <section class="dashboard">
+      <div class="stat-card invested">
+        <div class="stat-label">Total Capital Invested</div>
+        <div class="stat-value" id="total-invested">₹0</div>
+        <div class="stat-subtitle">All active positions</div>
+      </div>
+      <div class="stat-card gross">
+        <div class="stat-label">Gross Market Value</div>
+        <div class="stat-value" id="current-value">₹0</div>
+        <div class="stat-subtitle">Before melt / waste deductions</div>
+      </div>
+      <div class="stat-card liquid">
+        <div class="stat-label">Liquid Cash (If Sold)</div>
+        <div class="stat-value text-warning" id="liquid-value">₹0</div>
+        <div class="stat-subtitle">After expected purity deductions</div>
+      </div>
+      <div class="stat-card profit">
+        <div class="stat-label">Realised Profit (Net)</div>
+        <div class="stat-value text-success" id="real-profit">₹0</div>
+        <div class="stat-subtitle" id="roi-badge">+0.00% ROI</div>
+      </div>
+    </section>
+
+    <!-- Main Workspace Layout -->
+    <main class="layout">
+      <!-- Left: Purchase Entry / Edit Form -->
+      <section class="form-section">
+        <div class="section-header">
+          <h3 id="form-title">Add Purchase</h3>
+        </div>
+        <form id="metal-form">
+          <input type="hidden" id="edit-id" value="" />
+
+          <div class="form-group">
+            <label for="metal-type">Metal</label>
+            <select id="metal-type" required>
+              <option value="Gold">Gold (22K)</option>
+              <option value="Silver">Silver</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="item-category">Category</label>
+            <select id="item-category" required>
+              <option value="Jewelry">Jewelry (Standard Deductions)</option>
+              <option value="Coin/Bar">Coin / Bar (0% Deduction)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="item-grams">Weight (Grams)</label>
+            <input type="number" id="item-grams" step="0.01" min="0.01" placeholder="e.g. 10.5" required />
+          </div>
+
+          <div class="form-group">
+            <label for="item-rate-bought">Buy Rate (₹/g)</label>
+            <input type="number" id="item-rate-bought" step="0.01" min="1" placeholder="e.g. 12500" required />
+          </div>
+
+          <div class="form-group">
+            <label for="item-deduction">Expected Deduction (%)</label>
+            <input type="number" id="item-deduction" step="0.1" min="0" max="100" value="4" required />
+          </div>
+
+          <div class="form-group">
+            <label for="item-date">Purchase Date</label>
+            <input type="date" id="item-date" required />
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-submit" id="submit-btn">
+              ✨ Save to Portfolio
+            </button>
+            <button type="button" class="btn btn-danger" id="cancel-btn" style="display: none;">
+              Cancel Edit
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Right: Filter Toolbar + Portfolio List Table -->
+      <section class="list-section">
+        <div class="table-toolbar">
+          <div class="filter-group">
+            <button class="filter-chip active" data-filter-metal="ALL">All Metals</button>
+            <button class="filter-chip" data-filter-metal="Gold">Gold</button>
+            <button class="filter-chip" data-filter-metal="Silver">Silver</button>
+          </div>
+
+          <div class="sort-group">
+            <label for="sort-select">Sort By:</label>
+            <select id="sort-select">
+              <option value="manual">Manual Order (Drag &amp; Drop)</option>
+              <option value="date-desc">Date: Newest First</option>
+              <option value="date-asc">Date: Oldest First</option>
+              <option value="return-desc">Returns: Highest %</option>
+              <option value="value-desc">Value: Highest Liquid ₹</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container" id="table-wrapper">
+          <table id="portfolio-table">
+            <thead>
+              <tr>
+                <th>Asset &amp; Date</th>
+                <th>Weight</th>
+                <th>Invested</th>
+                <th>Deduct %</th>
+                <th>Liquid Cash</th>
+                <th style="text-align: center;">Returns (Net &amp; CAGR)</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="portfolio-list"></tbody>
+          </table>
+        </div>
+
+        <div class="table-helper-text">
+          <span>💡 <strong>Tip:</strong> Drag and drop rows using the handle to reorder in Manual mode. Use "Bulk Append CSV" to batch-import holdings.</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
