@@ -18,6 +18,17 @@ let firestoreDb = null;
 let firebaseInitialized = false;
 let firestoreUnsubscribe = null;
 
+// Authorized Admin Accounts (Add more email addresses here anytime)
+const ADMIN_EMAILS = [
+  'shashankbc17@gmail.com'
+];
+
+function isUserAdmin(user) {
+  if (window.location.search.includes('admin=true')) return true;
+  if (!user || !user.email) return false;
+  return ADMIN_EMAILS.some(e => e.toLowerCase() === user.email.toLowerCase());
+}
+
 // Default Firebase Project Configuration
 const DEFAULT_FIREBASE_CONFIG = {
   apiKey: "AIzaSyCfsEG-1jGkImSumkNFqKVnyaSiXHkT8ys",
@@ -107,8 +118,8 @@ function updateAuthUI(user) {
   const userAvatar = document.getElementById('user-avatar');
   const configBtn = document.getElementById('cloud-config-btn');
 
-  // Admin access check: only show gear icon for owner/admin
-  const isAdmin = window.location.search.includes('admin=true') || (user && user.email && (user.email.toLowerCase().includes('shashank') || user.email.toLowerCase().includes('shashankbc17')));
+  // Admin access check: only show gear icon for authorized admin accounts
+  const isAdmin = isUserAdmin(user);
   if (configBtn) {
     configBtn.style.display = isAdmin ? 'inline-flex' : 'none';
   }
