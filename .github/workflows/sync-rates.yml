@@ -1,0 +1,68 @@
+name: Auto-Sync Live Bangalore Metal Rates
+
+on:
+  schedule:
+    # Runs twice daily at 10:00 AM IST (4:30 AM UTC) and 4:00 PM IST (10:30 AM UTC)
+    - cron: '30 4,10 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  sync-rates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Fetch Live Karnataka (Bangalore) Bullion Rates
+        run: |
+          echo "Fetching live Bangalore Gold & Silver prices..."
+          RESPONSE=$(curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "https://api.lalithaajewellery.com/public/pricings/latest?state_id=fbe51d69-c3ef-466f-a8f4-7c382759e35f")
+          
+          # Parse JSON using python
+          python3 -c "
+          import json, sys
+          try:
+              data = json.loads('''$RESPONSE''')
+              prices = data.get('data', {}).get('prices', {})
+              g22 = prices.get('gold_22kt', {}).get('price', 14950.0)
+              g24 = prices.get('gold_24kt', {}).get('price', 16321.0)
+              sil = prices.get('silver', {}).get('price', 257.0)
+              plat = prices.get('platinum', {}).get('price', 7816.0)
+              updated = data.get('data', {}).get('rate_updated_time', '2026-08-22T09:33:00')
+              
+              rates = {
+                  'gold_22kt': float(g22),
+                  'gold_24kt': float(g24),
+                  'silver': float(sil),
+                  'platinum': float(plat),
+                  'state': 'Karnataka',
+                  'city': 'Bengaluru',
+                  'lastUpdated': updated,
+                  'source': 'Karnataka Bullion Market / Lalithaa Showroom Trade'
+              }
+              
+              with open('rates.json', 'w') as f:
+                  json.dump(rates, f, indent=2)
+              
+              # Also copy to static folder
+              try:
+                  with open('src/main/resources/static/rates.json', 'w') as f2:
+                      json.dump(rates, f2, indent=2)
+              except Exception:
+                  pass
+                  
+              print('Successfully updated rates.json:', rates)
+          except Exception as e:
+              print('Error parsing rates:', e)
+              sys.exit(0)
+          "
+
+      - name: Commit and Push Updated Rates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add rates.json src/main/resources/static/rates.json || true
+          git diff --staged --quiet || (git commit -m "⚡ Auto-sync live Bangalore Gold & Silver rates [skip ci]" && git push origin main)

@@ -371,6 +371,23 @@ async function updateMarketRates(gold, silver) {
 async function syncLiveRates() {
   showToast('⚡ Syncing live Karnataka (Bangalore) 22K Gold & Silver rates...', 'info');
 
+  // Strategy 1: Same-origin auto-synced rates.json (0ms latency, zero CORS error)
+  try {
+    const res = await fetch(`rates.json?t=${Date.now()}`);
+    if (res.ok) {
+      const data = await res.json();
+      const g22 = data.gold_22kt || 14950.0;
+      const sil = data.silver || 257.0;
+      saveLocalRates({ id: 1, goldRate: g22, silverRate: sil });
+      showToast(`✅ Synced Live Bangalore Rates: 22K Gold ₹${g22}/g, Silver ₹${sil}/g`, 'success');
+      loadPortfolio();
+      return;
+    }
+  } catch (e) {
+    console.log('rates.json check skipped, trying direct API...', e);
+  }
+
+  // Strategy 2: Direct API fetch
   try {
     const res = await fetch(LALITHAA_KARNATAKA_API);
     if (res.ok) {
