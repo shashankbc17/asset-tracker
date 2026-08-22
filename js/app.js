@@ -1,6 +1,6 @@
 /**
  * Personal Net Worth & Multi-Asset Tracker - Hybrid Client Application
- * Runs both against the Java Spring Boot backend and standalone on GitHub Pages!
+ * Supports LocalStorage, Java Spring Boot Backend, and Google Firebase Cloud Sync!
  */
 
 const API_BASE = '/api';
@@ -10,9 +10,14 @@ let currentSummary = null;
 let currentFilterType = 'ALL';
 let currentSort = 'value-desc';
 let editingId = null;
-let isStandaloneMode = false;
+let isStandaloneMode = true;
 
-// 13 Starter Luxury Holdings (Used for GitHub Pages / Offline)
+// Firebase State
+let currentUser = null;
+let firestoreDb = null;
+let firebaseInitialized = false;
+
+// 13 Starter Luxury Holdings
 const STARTER_ASSETS = [
   { id: 1, assetType: 'PRECIOUS_METALS', name: '24K Minted Gold Bar (100g)', purchaseDate: '2024-01-10', investedAmount: 620000, metalType: 'GOLD', categoryType: 'COIN_BAR', grams: 100, rateBought: 6200, deduction: 0 },
   { id: 2, assetType: 'PRECIOUS_METALS', name: '999 Fine Silver Bullion Bar (500g)', purchaseDate: '2024-04-12', investedAmount: 115000, metalType: 'SILVER', categoryType: 'COIN_BAR', grams: 500, rateBought: 230, deduction: 0 },
@@ -57,7 +62,104 @@ function showToast(message, type = 'info') {
 }
 
 // -------------------------------------------------------------
-// STANDALONE / GITHUB PAGES CALCULATION ENGINE
+// FIREBASE AUTHENTICATION & CLOUD SYNC ENGINE
+// -------------------------------------------------------------
+function initFirebase() {
+  const savedConfig = localStorage.getItem('firebase_web_config');
+  if (!savedConfig) {
+    console.log('No Firebase config found. Running in local/offline mode.');
+    return;
+  }
+
+  try {
+    const config = JSON.parse(savedConfig);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+    firestoreDb = firebase.firestore();
+    firebaseInitialized = true;
+
+    // Listen to Auth State
+    firebase.auth().onAuthStateChanged(user => {
+      currentUser = user;
+      updateAuthUI(user);
+
+      if (user) {
+        showToast(`👤 Signed in as ${user.displayName || user.email}`, 'success');
+        syncFromCloudFirestore(user.uid);
+      } else {
+        loadPortfolio();
+      }
+    });
+  } catch (err) {
+    console.error('Failed to initialize Firebase:', err);
+  }
+}
+
+function updateAuthUI(user) {
+  const loginBtn = document.getElementById('google-login-btn');
+  const profileBadge = document.getElementById('user-profile-badge');
+  const userName = document.getElementById('user-name');
+  const userAvatar = document.getElementById('user-avatar');
+
+  if (user) {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (profileBadge) profileBadge.style.display = 'flex';
+    if (userName) userName.innerText = user.displayName || user.email.split('@')[0];
+    if (userAvatar) userAvatar.src = user.photoURL || 'https://www.gravatar.com/avatar/?d=mp';
+  } else {
+    if (loginBtn) loginBtn.style.display = 'inline-flex';
+    if (profileBadge) profileBadge.style.display = 'none';
+  }
+}
+
+// Real-time Cloud Sync from Firestore
+function syncFromCloudFirestore(uid) {
+  if (!firestoreDb) return;
+
+  const docRef = firestoreDb.collection('users').doc(uid).collection('portfolio').doc('current');
+  docRef.onSnapshot(doc => {
+    if (doc.exists) {
+      const data = doc.data();
+      if (data.assets && Array.isArray(data.assets)) {
+        localStorage.setItem('wealth_assets', JSON.stringify(data.assets));
+      }
+      if (data.rates) {
+        localStorage.setItem('metals_rates', JSON.stringify(data.rates));
+      }
+      loadPortfolio();
+    } else {
+      // First time user: Upload local starter/current assets to cloud
+      const currentAssets = getLocalAssets();
+      const currentRates = getLocalRates();
+      docRef.set({
+        assets: currentAssets,
+        rates: currentRates,
+        updatedAt: new Date().toISOString()
+      }).then(() => {
+        showToast('☁️ Initialized personal cloud vault on Firebase!', 'success');
+      });
+    }
+  }, err => {
+    console.error('Firestore snapshot error:', err);
+  });
+}
+
+function syncToCloudFirestore() {
+  if (!currentUser || !firestoreDb) return;
+  const assets = getLocalAssets();
+  const rates = getLocalRates();
+  firestoreDb.collection('users').doc(currentUser.uid).collection('portfolio').doc('current').set({
+    assets,
+    rates,
+    updatedAt: new Date().toISOString()
+  }).catch(err => {
+    console.error('Error syncing to Firestore:', err);
+  });
+}
+
+// -------------------------------------------------------------
+// LOCAL / STANDALONE STORAGE HELPERS
 // -------------------------------------------------------------
 function getLocalRates() {
   const saved = localStorage.getItem('metals_rates');
@@ -70,6 +172,7 @@ function getLocalRates() {
 function saveLocalRates(rates) {
   rates.lastUpdated = new Date().toISOString();
   localStorage.setItem('metals_rates', JSON.stringify(rates));
+  syncToCloudFirestore();
 }
 
 function getLocalAssets() {
@@ -83,8 +186,12 @@ function getLocalAssets() {
 
 function saveLocalAssets(assets) {
   localStorage.setItem('wealth_assets', JSON.stringify(assets));
+  syncToCloudFirestore();
 }
 
+// -------------------------------------------------------------
+// NET WORTH VALUATION ENGINE
+// -------------------------------------------------------------
 function calculateStandaloneSummary() {
   const assets = getLocalAssets();
   const rates = getLocalRates();
@@ -144,7 +251,7 @@ function calculateStandaloneSummary() {
     const profitLoss = currentVal - invested;
     const returnPct = invested > 0 ? (profitLoss / invested) * 100 : 0;
     
-    // CAGR
+    // CAGR calculation
     let cagrStr = '0.00% p.a.';
     if (a.purchaseDate && invested > 0 && currentVal > 0) {
       const pDate = new Date(a.purchaseDate);
@@ -207,23 +314,28 @@ function calculateStandaloneSummary() {
 }
 
 // -------------------------------------------------------------
-// LOAD PORTFOLIO (Hybrid Server / Client)
+// LOAD & SYNC PORTFOLIO
 // -------------------------------------------------------------
 async function loadPortfolio() {
+  if (window.location.hostname.includes('github.io') || currentUser) {
+    isStandaloneMode = true;
+    currentSummary = calculateStandaloneSummary();
+    updateUI();
+    return;
+  }
+
   try {
     const res = await fetch(`${API_BASE}/assets/summary`);
     if (!res.ok) throw new Error('No backend');
     currentSummary = await res.json();
     isStandaloneMode = false;
   } catch (err) {
-    // Switch to Standalone Client Engine (GitHub Pages / Offline)
     isStandaloneMode = true;
     currentSummary = calculateStandaloneSummary();
   }
   updateUI();
 }
 
-// Update Rates
 async function updateMarketRates(gold, silver) {
   if (isStandaloneMode) {
     const r = getLocalRates();
@@ -250,7 +362,6 @@ async function updateMarketRates(gold, silver) {
   }
 }
 
-// Live Rates Sync
 async function syncLiveRates() {
   showToast('⚡ Syncing live Karnataka (Bangalore) 22K Gold & Silver rates...', 'info');
 
@@ -287,7 +398,6 @@ async function syncLiveRates() {
   }
 }
 
-// Save or Update Asset
 async function saveAsset(data) {
   if (isStandaloneMode) {
     const assets = getLocalAssets();
@@ -331,7 +441,6 @@ async function saveAsset(data) {
   }
 }
 
-// Delete Asset
 async function deleteAsset(id) {
   if (!confirm('Are you sure you want to delete this asset from your portfolio?')) return;
 
@@ -420,7 +529,6 @@ function renderAllocation(allocations) {
 
     const styling = classColorMap[alloc.assetType] || { bg: '#888', dot: '#888' };
 
-    // Bar segment
     const seg = document.createElement('div');
     seg.className = 'allocation-segment';
     seg.style.width = `${pct}%`;
@@ -428,7 +536,6 @@ function renderAllocation(allocations) {
     seg.title = `${alloc.name}: ${pct}% (${formatCurrency(alloc.currentValue)})`;
     bar.appendChild(seg);
 
-    // Legend item
     const item = document.createElement('div');
     item.className = 'allocation-legend-item';
     item.innerHTML = `
@@ -448,7 +555,6 @@ function renderTable(items) {
     return item.asset.assetType === currentFilterType;
   });
 
-  // Sorting
   filtered.sort((a, b) => {
     if (currentSort === 'value-desc') {
       return b.metrics.currentValue - a.metrics.currentValue;
@@ -536,7 +642,6 @@ function renderTable(items) {
   });
 }
 
-// Edit Asset
 function editAsset(id) {
   const item = currentSummary?.items.find(i => i.asset.id === id);
   if (!item) return;
@@ -638,6 +743,56 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sync button
   document.getElementById('sync-btn').addEventListener('click', syncLiveRates);
 
+  // Google Login Handler
+  document.getElementById('google-login-btn')?.addEventListener('click', () => {
+    if (!firebaseInitialized) {
+      document.getElementById('cloud-modal').style.display = 'flex';
+      return;
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider).catch(err => {
+      showToast(`Login failed: ${err.message}`, 'error');
+    });
+  });
+
+  // Logout Handler
+  document.getElementById('logout-btn')?.addEventListener('click', () => {
+    if (firebase.auth) {
+      firebase.auth().signOut().then(() => {
+        showToast('Signed out of cloud account', 'info');
+      });
+    }
+  });
+
+  // Cloud Config Modal Handlers
+  const modal = document.getElementById('cloud-modal');
+  document.getElementById('cloud-config-btn')?.addEventListener('click', () => {
+    const saved = localStorage.getItem('firebase_web_config') || '';
+    document.getElementById('firebase-config-input').value = saved;
+    modal.style.display = 'flex';
+  });
+  document.getElementById('close-modal-btn')?.addEventListener('click', () => modal.style.display = 'none');
+  document.getElementById('cancel-modal-btn')?.addEventListener('click', () => modal.style.display = 'none');
+
+  document.getElementById('save-cloud-config-btn')?.addEventListener('click', () => {
+    const raw = document.getElementById('firebase-config-input').value.trim();
+    if (!raw) {
+      localStorage.removeItem('firebase_web_config');
+      showToast('Cloud database disconnected', 'info');
+      modal.style.display = 'none';
+      return;
+    }
+    try {
+      JSON.parse(raw);
+      localStorage.setItem('firebase_web_config', raw);
+      showToast('☁️ Firebase Config Saved! Connecting...', 'success');
+      modal.style.display = 'none';
+      initFirebase();
+    } catch (e) {
+      showToast('Invalid JSON config. Please paste valid Firebase JSON.', 'error');
+    }
+  });
+
   // Filter Tabs
   document.querySelectorAll('.filter-tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -666,7 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
       assetType,
       name,
       purchaseDate,
-      userId: 'default_user'
+      userId: currentUser ? currentUser.uid : 'default_user'
     };
 
     if (assetType === 'PRECIOUS_METALS') {
@@ -703,12 +858,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // CSV Export & Template
   document.getElementById('export-csv-btn').addEventListener('click', () => {
+    if (isStandaloneMode) {
+      const assets = getLocalAssets();
+      const headers = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\n';
+      const rows = assets.map(a => [
+        a.assetType || '',
+        `"${a.name || ''}"`,
+        a.purchaseDate || '',
+        a.investedAmount || 0,
+        a.grams || '',
+        a.rateBought || '',
+        a.deduction || '',
+        a.ticker || '',
+        a.quantity || '',
+        a.buyPrice || '',
+        a.currentPrice || '',
+        `"${a.location || ''}"`,
+        a.areaSqFt || '',
+        a.estimatedMarketValue || '',
+        a.monthlyRentalIncome || '',
+        `"${a.bankName || ''}"`,
+        a.interestRatePct || '',
+        a.maturityDate || ''
+      ].join(',')).join('\n');
+
+      const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `wealth_portfolio_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('📥 Portfolio CSV downloaded!', 'success');
+      return;
+    }
     window.location.href = `${API_BASE}/portfolio/export-csv`;
   });
+
   document.getElementById('template-btn').addEventListener('click', () => {
     window.location.href = `${API_BASE}/portfolio/template`;
   });
 
-  // Initial Load
+  // Initialize Firebase (if config exists) & load
+  initFirebase();
   loadPortfolio();
 });
