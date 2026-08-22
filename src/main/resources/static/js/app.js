@@ -76,6 +76,11 @@ function showToast(message, type = 'info') {
 // FIREBASE AUTHENTICATION & CLOUD SYNC ENGINE
 // -------------------------------------------------------------
 function initFirebase() {
+  if (typeof firebase === 'undefined') {
+    setTimeout(initFirebase, 300);
+    return;
+  }
+
   let config = DEFAULT_FIREBASE_CONFIG;
   const savedConfig = localStorage.getItem('firebase_web_config');
   if (savedConfig) {
@@ -753,16 +758,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sync button
   document.getElementById('sync-btn').addEventListener('click', syncLiveRates);
 
-  // Google Login Handler
-  document.getElementById('google-login-btn')?.addEventListener('click', () => {
-    if (!firebaseInitialized) {
-      document.getElementById('cloud-modal').style.display = 'flex';
+  // Google Login Handler - Direct Google Sign-In Popup
+  document.getElementById('google-login-btn')?.addEventListener('click', async () => {
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      showToast('Firebase connection initializing... Please click again in 2 seconds.', 'info');
+      initFirebase();
       return;
     }
-    const provider = new firebase.auth.GoogleAuthProvider();
-    firebase.auth().signInWithPopup(provider).catch(err => {
-      showToast(`Login failed: ${err.message}`, 'error');
-    });
+
+    if (!firebaseInitialized) {
+      initFirebase();
+    }
+
+    try {
+      showToast('Opening Google Sign-In...', 'info');
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await firebase.auth().signInWithPopup(provider);
+    } catch (err) {
+      console.error('Google Sign-In error:', err);
+      if (err.code !== 'auth/popup-closed-by-user') {
+        showToast(`Login notice: ${err.message}`, 'error');
+      }
+    }
   });
 
   // Logout Handler
