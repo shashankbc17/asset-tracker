@@ -3,47 +3,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Precious Metals Portfolio Manager</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>My Personal Net Worth &amp; Multi-Asset Portfolio Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <div class="container">
     <!-- Header -->
     <header class="app-header">
       <div class="app-title-group">
-        <h1>Precious Metals Portfolio</h1>
-        <span class="app-badge">Gold &amp; Silver Tracker</span>
+        <h1>My Wealth &amp; Asset Tracker</h1>
+        <span class="app-badge">Multi-Asset Portfolio</span>
+        <span class="server-badge">☕ Java 17 + Spring Boot</span>
       </div>
       <div class="rates-meta" id="sync-status">
-        Ready
+        Real-Time Valuation Engine Active
       </div>
     </header>
 
-    <!-- Top Bar: Live Rates & CSV Tools -->
+    <!-- Top Bar: Spot Rates & Actions -->
     <section class="top-bar">
       <div class="rate-inputs">
         <div class="rate-card">
           <label for="global-gold">22K Gold (₹/g)</label>
           <div class="rate-input-wrapper">
             <span class="currency-symbol">₹</span>
-            <input type="number" id="global-gold" class="rate-input gold-input" value="14900" step="10" />
+            <input type="number" id="global-gold" class="rate-input gold-input" value="14950" step="10" />
           </div>
         </div>
         <div class="rate-card">
           <label for="global-silver">Silver (₹/g)</label>
           <div class="rate-input-wrapper">
             <span class="currency-symbol">₹</span>
-            <input type="number" id="global-silver" class="rate-input silver-input" value="240" step="1" />
+            <input type="number" id="global-silver" class="rate-input silver-input" value="260" step="1" />
           </div>
         </div>
       </div>
 
       <div class="action-bar">
-        <button class="btn btn-primary" id="sync-btn" title="Fetch live spot rates from market">
-          ⚡ Sync Fast Rates
+        <button class="btn btn-primary" id="sync-btn" title="Recalculate entire portfolio with current prices">
+          ⚡ Recalculate Portfolio
         </button>
         <button class="btn" id="btn-template" title="Download sample CSV template">
           📥 CSV Template
@@ -51,86 +52,176 @@
         <button class="btn" id="btn-export" title="Export portfolio to CSV file">
           📤 Export CSV
         </button>
-        <button class="btn btn-success" id="btn-import" title="Upload CSV and append to portfolio">
-          📂 Bulk Append CSV
+        <button class="btn btn-success" id="btn-import" title="Upload CSV holdings">
+          📂 Bulk CSV Import
         </button>
         <input type="file" id="csv-file-input" accept=".csv" style="display: none;" />
       </div>
     </section>
 
-    <!-- Dashboard Metric Cards -->
+    <!-- Net Worth Metric Cards -->
     <section class="dashboard">
+      <div class="stat-card gross">
+        <div class="stat-label">Total Net Worth</div>
+        <div class="stat-value text-gold" id="total-net-worth">₹0</div>
+        <div class="stat-subtitle">Combined value of all holdings</div>
+      </div>
       <div class="stat-card invested">
         <div class="stat-label">Total Capital Invested</div>
         <div class="stat-value" id="total-invested">₹0</div>
-        <div class="stat-subtitle">All active positions</div>
-      </div>
-      <div class="stat-card gross">
-        <div class="stat-label">Gross Market Value</div>
-        <div class="stat-value" id="current-value">₹0</div>
-        <div class="stat-subtitle">Before melt / waste deductions</div>
-      </div>
-      <div class="stat-card liquid">
-        <div class="stat-label">Liquid Cash (If Sold)</div>
-        <div class="stat-value text-warning" id="liquid-value">₹0</div>
-        <div class="stat-subtitle">After expected purity deductions</div>
+        <div class="stat-subtitle">Across all asset classes</div>
       </div>
       <div class="stat-card profit">
-        <div class="stat-label">Realised Profit (Net)</div>
+        <div class="stat-label">Total Wealth Gains</div>
         <div class="stat-value text-success" id="real-profit">₹0</div>
-        <div class="stat-subtitle" id="roi-badge">+0.00% ROI</div>
+        <div class="stat-subtitle" id="roi-badge">+0.00% Overall ROI</div>
+      </div>
+      <div class="stat-card liquid">
+        <div class="stat-label">Asset Diversification</div>
+        <div class="stat-value text-warning" id="asset-count-stat">4 Classes</div>
+        <div class="stat-subtitle" id="total-holdings-count">0 Total Holdings</div>
+      </div>
+    </section>
+
+    <!-- Asset Allocation Visualizer -->
+    <section class="allocation-section">
+      <div class="allocation-header">
+        <h3>📊 Asset Allocation &amp; Diversification</h3>
+        <span class="allocation-total" id="allocation-header-text">Portfolio Breakdown</span>
+      </div>
+      <div class="allocation-bar" id="allocation-bar">
+        <!-- Dynamic segments rendered by JS -->
+      </div>
+      <div class="allocation-legend" id="allocation-legend">
+        <!-- Dynamic legend rendered by JS -->
       </div>
     </section>
 
     <!-- Main Workspace Layout -->
     <main class="layout">
-      <!-- Left: Purchase Entry / Edit Form -->
+      <!-- Left: Adaptive Asset Entry Form -->
       <section class="form-section">
         <div class="section-header">
-          <h3 id="form-title">Add Purchase</h3>
+          <h3 id="form-title">Add Asset</h3>
         </div>
-        <form id="metal-form">
-          <input type="hidden" id="edit-id" value="" />
-
+        <form id="asset-form">
           <div class="form-group">
-            <label for="metal-type">Metal</label>
-            <select id="metal-type" required>
-              <option value="Gold">Gold (22K)</option>
-              <option value="Silver">Silver</option>
+            <label for="asset-type-select">Asset Class</label>
+            <select id="asset-type-select" required>
+              <option value="PRECIOUS_METALS">🪙 Precious Metals (Gold / Silver)</option>
+              <option value="EQUITY">📈 Equities &amp; Mutual Funds</option>
+              <option value="REAL_ESTATE">🏡 Real Estate (Land / House)</option>
+              <option value="CASH_SAVINGS">💰 Cash &amp; Fixed Deposits</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label for="item-category">Category</label>
-            <select id="item-category" required>
-              <option value="Jewelry">Jewelry (Standard Deductions)</option>
-              <option value="Coin/Bar">Coin / Bar (0% Deduction)</option>
-            </select>
+            <label for="asset-name">Asset Name / Title</label>
+            <input type="text" id="asset-name" placeholder="e.g. 24K Gold Bar, TCS, 3BHK Flat, HDFC FD" required />
           </div>
 
           <div class="form-group">
-            <label for="item-grams">Weight (Grams)</label>
-            <input type="number" id="item-grams" step="0.01" min="0.01" placeholder="e.g. 10.5" required />
+            <label for="asset-date">Purchase / Deposit Date</label>
+            <input type="date" id="asset-date" required />
           </div>
 
-          <div class="form-group">
-            <label for="item-rate-bought">Buy Rate (₹/g)</label>
-            <input type="number" id="item-rate-bought" step="0.01" min="1" placeholder="e.g. 12500" required />
+          <!-- Dynamic Fieldset: Precious Metals -->
+          <div id="fields-metals" class="dynamic-fieldset">
+            <div class="form-group">
+              <label for="metal-type">Metal</label>
+              <select id="metal-type">
+                <option value="GOLD">Gold (22K)</option>
+                <option value="SILVER">Silver</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="item-category">Category</label>
+              <select id="item-category">
+                <option value="COIN_BAR">Coin / Bar (0% Deduction)</option>
+                <option value="JEWELRY">Jewelry (Standard Deductions)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="item-grams">Weight (Grams)</label>
+              <input type="number" id="item-grams" step="0.01" min="0.01" placeholder="e.g. 10.5" />
+            </div>
+            <div class="form-group">
+              <label for="item-rate-bought">Buy Rate (₹/g)</label>
+              <input type="number" id="item-rate-bought" step="0.01" min="1" placeholder="e.g. 12500" />
+            </div>
+            <div class="form-group">
+              <label for="item-deduction">Expected Deduction (%)</label>
+              <input type="number" id="item-deduction" step="0.1" min="0" max="100" value="0" />
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="item-deduction">Expected Deduction (%)</label>
-            <input type="number" id="item-deduction" step="0.1" min="0" max="100" value="4" required />
+          <!-- Dynamic Fieldset: Equities / Stocks -->
+          <div id="fields-equity" class="dynamic-fieldset" style="display: none;">
+            <div class="form-group">
+              <label for="equity-ticker">Ticker / Symbol</label>
+              <input type="text" id="equity-ticker" placeholder="e.g. TCS, INFY, NIFTYBEES" />
+            </div>
+            <div class="form-group">
+              <label for="equity-qty">Quantity (Shares / Units)</label>
+              <input type="number" id="equity-qty" step="1" min="1" placeholder="e.g. 50" />
+            </div>
+            <div class="form-group">
+              <label for="equity-buy-price">Buy Price / Share (₹)</label>
+              <input type="number" id="equity-buy-price" step="0.01" min="0.1" placeholder="e.g. 3850" />
+            </div>
+            <div class="form-group">
+              <label for="equity-current-price">Current Market Price (₹)</label>
+              <input type="number" id="equity-current-price" step="0.01" min="0.1" placeholder="e.g. 4200" />
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="item-date">Purchase Date</label>
-            <input type="date" id="item-date" required />
+          <!-- Dynamic Fieldset: Real Estate -->
+          <div id="fields-real-estate" class="dynamic-fieldset" style="display: none;">
+            <div class="form-group">
+              <label for="re-location">Location / City</label>
+              <input type="text" id="re-location" placeholder="e.g. Bengaluru, Indiranagar" />
+            </div>
+            <div class="form-group">
+              <label for="re-area">Area (Sq. Ft)</label>
+              <input type="number" id="re-area" step="1" placeholder="e.g. 1850" />
+            </div>
+            <div class="form-group">
+              <label for="re-purchase-price">Purchase Cost (₹)</label>
+              <input type="number" id="re-purchase-price" step="1000" placeholder="e.g. 12500000" />
+            </div>
+            <div class="form-group">
+              <label for="re-current-val">Current Estimated Valuation (₹)</label>
+              <input type="number" id="re-current-val" step="1000" placeholder="e.g. 16000000" />
+            </div>
+            <div class="form-group">
+              <label for="re-rent">Monthly Rental Income (₹, Optional)</label>
+              <input type="number" id="re-rent" step="500" placeholder="e.g. 65000" />
+            </div>
+          </div>
+
+          <!-- Dynamic Fieldset: Cash / Fixed Deposits -->
+          <div id="fields-cash" class="dynamic-fieldset" style="display: none;">
+            <div class="form-group">
+              <label for="cash-bank">Bank / Financial Institution</label>
+              <input type="text" id="cash-bank" placeholder="e.g. HDFC Bank, SBI, ICICI" />
+            </div>
+            <div class="form-group">
+              <label for="cash-deposit">Deposit Amount (₹)</label>
+              <input type="number" id="cash-deposit" step="100" placeholder="e.g. 500000" />
+            </div>
+            <div class="form-group">
+              <label for="cash-rate">Interest Rate (% p.a.)</label>
+              <input type="number" id="cash-rate" step="0.05" placeholder="e.g. 7.25" />
+            </div>
+            <div class="form-group">
+              <label for="cash-maturity">Maturity Date (Optional)</label>
+              <input type="date" id="cash-maturity" />
+            </div>
           </div>
 
           <div class="form-actions">
             <button type="submit" class="btn-submit" id="submit-btn">
-              ✨ Save to Portfolio
+              ✨ Save Asset to Portfolio
             </button>
             <button type="button" class="btn btn-danger" id="cancel-btn" style="display: none;">
               Cancel Edit
@@ -139,23 +230,24 @@
         </form>
       </section>
 
-      <!-- Right: Filter Toolbar + Portfolio List Table -->
+      <!-- Right: Asset Filter Tabs + Asset List Table -->
       <section class="list-section">
         <div class="table-toolbar">
           <div class="filter-group">
-            <button class="filter-chip active" data-filter-metal="ALL">All Metals</button>
-            <button class="filter-chip" data-filter-metal="Gold">Gold</button>
-            <button class="filter-chip" data-filter-metal="Silver">Silver</button>
+            <button class="filter-chip active" data-filter-type="ALL">All Assets</button>
+            <button class="filter-chip" data-filter-type="PRECIOUS_METALS">🪙 Metals</button>
+            <button class="filter-chip" data-filter-type="EQUITY">📈 Equities</button>
+            <button class="filter-chip" data-filter-type="REAL_ESTATE">🏡 Real Estate</button>
+            <button class="filter-chip" data-filter-type="CASH_SAVINGS">💰 Cash &amp; FDs</button>
           </div>
 
           <div class="sort-group">
             <label for="sort-select">Sort By:</label>
             <select id="sort-select">
-              <option value="manual">Manual Order (Drag &amp; Drop)</option>
+              <option value="value-desc">Current Value: Highest ₹</option>
+              <option value="return-desc">Returns: Highest %</option>
               <option value="date-desc">Date: Newest First</option>
               <option value="date-asc">Date: Oldest First</option>
-              <option value="return-desc">Returns: Highest %</option>
-              <option value="value-desc">Value: Highest Liquid ₹</option>
             </select>
           </div>
         </div>
@@ -164,12 +256,11 @@
           <table id="portfolio-table">
             <thead>
               <tr>
-                <th>Asset &amp; Date</th>
-                <th>Weight</th>
-                <th>Invested</th>
-                <th>Deduct %</th>
-                <th>Liquid Cash</th>
-                <th style="text-align: center;">Returns (Net &amp; CAGR)</th>
+                <th>Asset Details</th>
+                <th>Key Specifications</th>
+                <th>Invested Capital</th>
+                <th>Current Valuation</th>
+                <th style="text-align: center;">Profit / Returns</th>
                 <th style="text-align: right;">Actions</th>
               </tr>
             </thead>
@@ -178,12 +269,12 @@
         </div>
 
         <div class="table-helper-text">
-          <span>💡 <strong>Tip:</strong> Drag and drop rows using the handle to reorder in Manual mode. Use "Bulk Append CSV" to batch-import holdings.</span>
+          <span>💡 <strong>Comprehensive Net Worth Tracker:</strong> Supports Gold, Silver, Stocks, Real Estate, and Cash Reserves with live database persistence.</span>
         </div>
       </section>
     </main>
   </div>
 
-  <script type="module" src="/src/main.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
