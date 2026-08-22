@@ -1,13 +1,9 @@
-# Stage 1: Build the Spring Boot Application
-FROM eclipse-temurin:17-jdk-jammy AS build
+# Stage 1: Build the Spring Boot Application using official Maven image
+FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# Copy Maven files
+# Copy pom.xml and source code
 COPY pom.xml .
-COPY mvnw* .
-COPY .mvn .mvn
-
-# Copy Source code
 COPY src src
 
 # Build executable jar
