@@ -1,6 +1,6 @@
 /**
  * Personal Net Worth & Multi-Asset Tracker - Hybrid Client Application
- * Supports LocalStorage, Java Spring Boot Backend, and Google Firebase Cloud Sync!
+ * Strictly Authenticated Cloud Sync (Firebase + Google Sign-In)
  */
 
 const API_BASE = '/api';
@@ -12,10 +12,11 @@ let currentSort = 'value-desc';
 let editingId = null;
 let isStandaloneMode = true;
 
-// Firebase State
+// Firebase & Auth State
 let currentUser = null;
 let firestoreDb = null;
 let firebaseInitialized = false;
+let firestoreUnsubscribe = null;
 
 // Default Firebase Project Configuration
 const DEFAULT_FIREBASE_CONFIG = {
@@ -28,7 +29,7 @@ const DEFAULT_FIREBASE_CONFIG = {
   measurementId: "G-HWGSD19563"
 };
 
-// 13 Starter Luxury Holdings
+// 13 Starter Luxury Holdings (Loaded only on first-time personal cloud initialization)
 const STARTER_ASSETS = [
   { id: 1, assetType: 'PRECIOUS_METALS', name: '24K Minted Gold Bar (100g)', purchaseDate: '2024-01-10', investedAmount: 620000, metalType: 'GOLD', categoryType: 'COIN_BAR', grams: 100, rateBought: 6200, deduction: 0 },
   { id: 2, assetType: 'PRECIOUS_METALS', name: '999 Fine Silver Bullion Bar (500g)', purchaseDate: '2024-04-12', investedAmount: 115000, metalType: 'SILVER', categoryType: 'COIN_BAR', grams: 500, rateBought: 230, deduction: 0 },
@@ -94,7 +95,7 @@ function initFirebase() {
     firestoreDb = firebase.firestore();
     firebaseInitialized = true;
 
-    // Listen to Auth State
+    // Listen to Auth State changes
     firebase.auth().onAuthStateChanged(user => {
       currentUser = user;
       updateAuthUI(user);
@@ -103,6 +104,12 @@ function initFirebase() {
         showToast(`👤 Signed in as ${user.displayName || user.email}`, 'success');
         syncFromCloudFirestore(user.uid);
       } else {
+        // Unsubscribe from any previous Firestore listener on logout
+        if (firestoreUnsubscribe) {
+          firestoreUnsubscribe();
+          firestoreUnsubscribe = null;
+        }
+        currentSummary = null;
         loadPortfolio();
       }
     });
@@ -128,26 +135,33 @@ function updateAuthUI(user) {
   }
 }
 
-// Real-time Cloud Sync from Firestore
+// Real-time Cloud Sync from Firestore for authenticated user
 function syncFromCloudFirestore(uid) {
   if (!firestoreDb) return;
 
+  if (firestoreUnsubscribe) {
+    firestoreUnsubscribe();
+    firestoreUnsubscribe = null;
+  }
+
   const docRef = firestoreDb.collection('users').doc(uid).collection('portfolio').doc('current');
-  docRef.onSnapshot(doc => {
+  firestoreUnsubscribe = docRef.onSnapshot(doc => {
+    if (!currentUser) return;
+
     if (doc.exists) {
       const data = doc.data();
       if (data.assets && Array.isArray(data.assets)) {
-        localStorage.setItem('wealth_assets', JSON.stringify(data.assets));
+        localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(data.assets));
       }
       if (data.rates) {
-        localStorage.setItem('metals_rates', JSON.stringify(data.rates));
+        localStorage.setItem(`metals_rates_${uid}`, JSON.stringify(data.rates));
       }
       loadPortfolio();
     } else {
-      // First time logged in: Initialize personal cloud vault
+      // First-time user: Initialize personal cloud vault
       const initialAssets = STARTER_ASSETS;
       const currentRates = getLocalRates();
-      localStorage.setItem('wealth_assets', JSON.stringify(initialAssets));
+      localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(initialAssets));
       docRef.set({
         assets: initialAssets,
         rates: currentRates,
@@ -176,27 +190,37 @@ function syncToCloudFirestore() {
 }
 
 // -------------------------------------------------------------
-// LOCAL / STANDALONE STORAGE HELPERS
+// LOCAL STORAGE (STRICTLY USER-SCOPED)
 // -------------------------------------------------------------
 function getLocalRates() {
-  const saved = localStorage.getItem('metals_rates');
-  if (saved) {
-    try { return JSON.parse(saved); } catch (e) {}
+  if (currentUser) {
+    const saved = localStorage.getItem(`metals_rates_${currentUser.uid}`);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+  }
+  const globalRates = localStorage.getItem('metals_rates_global');
+  if (globalRates) {
+    try { return JSON.parse(globalRates); } catch (e) {}
   }
   return { id: 1, goldRate: 14950.0, silverRate: 257.0, lastUpdated: new Date().toISOString() };
 }
 
 function saveLocalRates(rates) {
   rates.lastUpdated = new Date().toISOString();
-  localStorage.setItem('metals_rates', JSON.stringify(rates));
-  syncToCloudFirestore();
+  if (currentUser) {
+    localStorage.setItem(`metals_rates_${currentUser.uid}`, JSON.stringify(rates));
+    syncToCloudFirestore();
+  } else {
+    localStorage.setItem('metals_rates_global', JSON.stringify(rates));
+  }
 }
 
 function getLocalAssets() {
   if (!currentUser) {
-    return []; // No data shown when logged out
+    return []; // STRICT: Zero data shown when not signed in
   }
-  const saved = localStorage.getItem('wealth_assets');
+  const saved = localStorage.getItem(`wealth_assets_${currentUser.uid}`);
   if (saved) {
     try { return JSON.parse(saved); } catch (e) {}
   }
@@ -204,7 +228,8 @@ function getLocalAssets() {
 }
 
 function saveLocalAssets(assets) {
-  localStorage.setItem('wealth_assets', JSON.stringify(assets));
+  if (!currentUser) return;
+  localStorage.setItem(`wealth_assets_${currentUser.uid}`, JSON.stringify(assets));
   syncToCloudFirestore();
 }
 
@@ -212,6 +237,20 @@ function saveLocalAssets(assets) {
 // NET WORTH VALUATION ENGINE
 // -------------------------------------------------------------
 function calculateStandaloneSummary() {
+  if (!currentUser) {
+    // Return completely empty summary when logged out
+    return {
+      totalNetWorth: 0,
+      totalInvested: 0,
+      totalProfitLoss: 0,
+      overallReturnPct: 0,
+      netProfitable: true,
+      rates: getLocalRates(),
+      allocations: [],
+      items: []
+    };
+  }
+
   const assets = getLocalAssets();
   const rates = getLocalRates();
   const today = new Date();
@@ -336,151 +375,92 @@ function calculateStandaloneSummary() {
 // LOAD & SYNC PORTFOLIO
 // -------------------------------------------------------------
 async function loadPortfolio() {
-  if (window.location.hostname.includes('github.io') || currentUser) {
-    isStandaloneMode = true;
-    currentSummary = calculateStandaloneSummary();
+  if (!currentUser) {
+    // STRICT: When not logged in, zero out all metrics & display locked screen
+    currentSummary = {
+      totalNetWorth: 0,
+      totalInvested: 0,
+      totalProfitLoss: 0,
+      overallReturnPct: 0,
+      netProfitable: true,
+      rates: getLocalRates(),
+      allocations: [],
+      items: []
+    };
     updateUI();
     return;
   }
 
-  try {
-    const res = await fetch(`${API_BASE}/assets/summary`);
-    if (!res.ok) throw new Error('No backend');
-    currentSummary = await res.json();
-    isStandaloneMode = false;
-  } catch (err) {
-    isStandaloneMode = true;
-    currentSummary = calculateStandaloneSummary();
-  }
+  isStandaloneMode = true;
+  currentSummary = calculateStandaloneSummary();
   updateUI();
 }
 
 async function updateMarketRates(gold, silver) {
-  if (isStandaloneMode) {
-    const r = getLocalRates();
-    r.goldRate = parseFloat(gold) || r.goldRate;
-    r.silverRate = parseFloat(silver) || r.silverRate;
-    saveLocalRates(r);
-    showToast('Market rates updated & portfolio recalculated!', 'success');
-    loadPortfolio();
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/portfolio/rates`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gold: parseFloat(gold), silver: parseFloat(silver) })
-    });
-    if (res.ok) {
-      showToast('Market rates updated & portfolio recalculated!', 'success');
-      loadPortfolio();
-    }
-  } catch (err) {
-    showToast('Failed to update rates', 'error');
-  }
+  const r = getLocalRates();
+  r.goldRate = parseFloat(gold) || r.goldRate;
+  r.silverRate = parseFloat(silver) || r.silverRate;
+  saveLocalRates(r);
+  showToast('Market rates updated & portfolio recalculated!', 'success');
+  loadPortfolio();
 }
 
 async function syncLiveRates() {
   showToast('⚡ Syncing live Karnataka (Bangalore) 22K Gold & Silver rates...', 'info');
 
-  if (isStandaloneMode) {
-    try {
-      const res = await fetch(LALITHAA_KARNATAKA_API);
-      if (res.ok) {
-        const json = await res.json();
-        const g22 = json?.data?.prices?.gold_22kt?.price || 14950.0;
-        const sil = json?.data?.prices?.silver?.price || 257.0;
-        saveLocalRates({ id: 1, goldRate: g22, silverRate: sil });
-        showToast(`✅ Synced Official Karnataka Bullion: 22K Gold ₹${g22}/g, Silver ₹${sil}/g`, 'success');
-        loadPortfolio();
-        return;
-      }
-    } catch (e) {
-      console.warn('Direct live API failed, keeping current rates', e);
+  try {
+    const res = await fetch(LALITHAA_KARNATAKA_API);
+    if (res.ok) {
+      const json = await res.json();
+      const g22 = json?.data?.prices?.gold_22kt?.price || 14950.0;
+      const sil = json?.data?.prices?.silver?.price || 257.0;
+      saveLocalRates({ id: 1, goldRate: g22, silverRate: sil });
+      showToast(`✅ Synced Official Karnataka Bullion: 22K Gold ₹${g22}/g, Silver ₹${sil}/g`, 'success');
+      loadPortfolio();
+      return;
     }
-    saveLocalRates({ id: 1, goldRate: 14950.0, silverRate: 257.0 });
-    showToast('✅ Synced Bangalore Spot: 22K Gold ₹14,950/g, Silver ₹257/g', 'success');
-    loadPortfolio();
-    return;
+  } catch (e) {
+    console.warn('Direct live API failed, keeping benchmark rates', e);
   }
 
-  try {
-    const res = await fetch(`${API_BASE}/portfolio/rates/sync`, { method: 'POST' });
-    if (res.ok) {
-      const rates = await res.json();
-      showToast(`✅ Synced Official Karnataka Bullion: 22K Gold ₹${rates.goldRate}/g, Silver ₹${rates.silverRate}/g`, 'success');
-      loadPortfolio();
-    }
-  } catch (err) {
-    showToast('Failed to sync live rates', 'error');
-  }
+  saveLocalRates({ id: 1, goldRate: 14950.0, silverRate: 257.0 });
+  showToast('✅ Synced Bangalore Spot: 22K Gold ₹14,950/g, Silver ₹257/g', 'success');
+  loadPortfolio();
 }
 
 async function saveAsset(data) {
-  if (isStandaloneMode) {
-    const assets = getLocalAssets();
-    if (editingId) {
-      const idx = assets.findIndex(a => a.id === editingId);
-      if (idx !== -1) {
-        assets[idx] = { ...assets[idx], ...data, id: editingId };
-        showToast('Asset updated successfully!', 'success');
-      }
-    } else {
-      const newId = assets.length > 0 ? Math.max(...assets.map(a => a.id || 0)) + 1 : 1;
-      assets.unshift({ ...data, id: newId });
-      showToast('New asset saved to portfolio!', 'success');
-    }
-    saveLocalAssets(assets);
-    resetForm();
-    loadPortfolio();
+  if (!currentUser) {
+    showToast('🔒 Please Sign In with Google first to save assets!', 'warning');
     return;
   }
 
-  try {
-    const isEdit = editingId !== null;
-    const url = isEdit ? `${API_BASE}/assets/${editingId}` : `${API_BASE}/assets`;
-    const method = isEdit ? 'PUT' : 'POST';
-
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-
-    if (res.ok) {
-      showToast(isEdit ? 'Asset updated successfully!' : 'New asset saved to portfolio!', 'success');
-      resetForm();
-      loadPortfolio();
-    } else {
-      showToast('Error saving asset', 'error');
+  const assets = getLocalAssets();
+  if (editingId) {
+    const idx = assets.findIndex(a => a.id === editingId);
+    if (idx !== -1) {
+      assets[idx] = { ...assets[idx], ...data, id: editingId };
+      showToast('Asset updated successfully!', 'success');
     }
-  } catch (err) {
-    showToast('Failed to save asset', 'error');
+  } else {
+    const newId = assets.length > 0 ? Math.max(...assets.map(a => a.id || 0)) + 1 : 1;
+    assets.unshift({ ...data, id: newId });
+    showToast('New asset saved to your cloud portfolio!', 'success');
   }
+
+  saveLocalAssets(assets);
+  resetForm();
+  loadPortfolio();
 }
 
 async function deleteAsset(id) {
+  if (!currentUser) return;
   if (!confirm('Are you sure you want to delete this asset from your portfolio?')) return;
 
-  if (isStandaloneMode) {
-    let assets = getLocalAssets();
-    assets = assets.filter(a => a.id !== id);
-    saveLocalAssets(assets);
-    showToast('Asset removed from storage', 'info');
-    loadPortfolio();
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/assets/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      showToast('Asset removed from database', 'info');
-      loadPortfolio();
-    }
-  } catch (err) {
-    showToast('Failed to delete asset', 'error');
-  }
+  let assets = getLocalAssets();
+  assets = assets.filter(a => a.id !== id);
+  saveLocalAssets(assets);
+  showToast('Asset removed from cloud storage', 'info');
+  loadPortfolio();
 }
 
 // -------------------------------------------------------------
@@ -535,6 +515,10 @@ function renderAllocation(allocations) {
   bar.innerHTML = '';
   legend.innerHTML = '';
 
+  if (!currentUser || allocations.length === 0) {
+    return;
+  }
+
   const classColorMap = {
     'PRECIOUS_METALS': { bg: 'linear-gradient(90deg, #d4af37, #f7e07c)', dot: '#d4af37' },
     'EQUITY': { bg: 'linear-gradient(90deg, #4da6ff, #0066cc)', dot: '#4da6ff' },
@@ -569,6 +553,20 @@ function renderTable(items) {
   const tbody = document.getElementById('portfolio-list');
   tbody.innerHTML = '';
 
+  // Strict check: if not signed in, show Locked Screen
+  if (!currentUser) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-state" style="padding: 60px 20px;">
+          <div class="empty-state-icon">🔒</div>
+          <h3 style="color: #fff; font-size: 1.25rem; margin-bottom: 8px;">Private &amp; Secure Portfolio Vault</h3>
+          <p style="color: var(--text-muted); max-width: 480px; margin: 0 auto 16px;">Please click <strong>Sign in with Google</strong> in the top header to access your private wealth data.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   let filtered = items.filter(item => {
     if (currentFilterType === 'ALL') return true;
     return item.asset.assetType === currentFilterType;
@@ -586,19 +584,6 @@ function renderTable(items) {
     }
     return 0;
   });
-
-  if (!currentUser && (window.location.hostname.includes('github.io') || isStandaloneMode)) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="empty-state" style="padding: 60px 20px;">
-          <div class="empty-state-icon">🔒</div>
-          <h3 style="color: #fff; font-size: 1.2rem; margin-bottom: 8px;">Private &amp; Secure Portfolio Vault</h3>
-          <p style="color: var(--text-muted); max-width: 460px; margin: 0 auto;">Click <strong>Sign in with Google</strong> in the top header to view and manage your assets.</p>
-        </td>
-      </tr>
-    `;
-    return;
-  }
 
   if (filtered.length === 0) {
     tbody.innerHTML = `
@@ -747,6 +732,9 @@ function toggleFormFieldsets(type) {
 // INITIALIZATION & EVENT LISTENERS
 // -------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
+  // Wipe out any legacy unauthenticated storage
+  localStorage.removeItem('wealth_assets');
+
   // Set default date
   const dateInput = document.getElementById('asset-date');
   if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
@@ -772,7 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('global-gold').addEventListener('change', rateHandler);
   document.getElementById('global-silver').addEventListener('change', rateHandler);
 
-  // Sync button
+  // Sync button - only updates rate inputs if logged out
   document.getElementById('sync-btn').addEventListener('click', syncLiveRates);
 
   // Google Login Handler - Direct Google Sign-In Popup
@@ -800,12 +788,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Logout Handler - Clear local session securely
+  // Logout Handler - Cleanly unsubs and wipes screen immediately
   document.getElementById('logout-btn')?.addEventListener('click', () => {
+    if (firestoreUnsubscribe) {
+      firestoreUnsubscribe();
+      firestoreUnsubscribe = null;
+    }
     if (firebase.auth) {
       firebase.auth().signOut().then(() => {
         currentUser = null;
-        localStorage.removeItem('wealth_assets');
         updateAuthUI(null);
         showToast('Signed out. Your private data has been safely cleared from this screen.', 'info');
         loadPortfolio();
@@ -862,7 +853,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('asset-form').addEventListener('submit', (e) => {
     e.preventDefault();
 
-    if (!currentUser && (window.location.hostname.includes('github.io') || isStandaloneMode)) {
+    if (!currentUser) {
       showToast('🔒 Please Sign In with Google at the top to add or manage your assets!', 'warning');
       return;
     }
@@ -875,7 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
       assetType,
       name,
       purchaseDate,
-      userId: currentUser ? currentUser.uid : 'default_user'
+      userId: currentUser.uid
     };
 
     if (assetType === 'PRECIOUS_METALS') {
@@ -912,49 +903,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // CSV Export & Template
   document.getElementById('export-csv-btn').addEventListener('click', () => {
-    if (isStandaloneMode) {
-      const assets = getLocalAssets();
-      const headers = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\n';
-      const rows = assets.map(a => [
-        a.assetType || '',
-        `"${a.name || ''}"`,
-        a.purchaseDate || '',
-        a.investedAmount || 0,
-        a.grams || '',
-        a.rateBought || '',
-        a.deduction || '',
-        a.ticker || '',
-        a.quantity || '',
-        a.buyPrice || '',
-        a.currentPrice || '',
-        `"${a.location || ''}"`,
-        a.areaSqFt || '',
-        a.estimatedMarketValue || '',
-        a.monthlyRentalIncome || '',
-        `"${a.bankName || ''}"`,
-        a.interestRatePct || '',
-        a.maturityDate || ''
-      ].join(',')).join('\n');
-
-      const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `wealth_portfolio_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast('📥 Portfolio CSV downloaded!', 'success');
+    if (!currentUser) {
+      showToast('🔒 Please Sign In with Google first to export your data!', 'warning');
       return;
     }
-    window.location.href = `${API_BASE}/portfolio/export-csv`;
+    const assets = getLocalAssets();
+    const headers = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\n';
+    const rows = assets.map(a => [
+      a.assetType || '',
+      `"${a.name || ''}"`,
+      a.purchaseDate || '',
+      a.investedAmount || 0,
+      a.grams || '',
+      a.rateBought || '',
+      a.deduction || '',
+      a.ticker || '',
+      a.quantity || '',
+      a.buyPrice || '',
+      a.currentPrice || '',
+      `"${a.location || ''}"`,
+      a.areaSqFt || '',
+      a.estimatedMarketValue || '',
+      a.monthlyRentalIncome || '',
+      `"${a.bankName || ''}"`,
+      a.interestRatePct || '',
+      a.maturityDate || ''
+    ].join(',')).join('\n');
+
+    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `wealth_portfolio_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('📥 Portfolio CSV downloaded!', 'success');
   });
 
   document.getElementById('template-btn').addEventListener('click', () => {
-    window.location.href = `${API_BASE}/portfolio/template`;
+    const templateContent = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\nPRECIOUS_METALS,"24K Gold Bar",2024-01-10,,100,6200,0,,,,,,,,,\nPRECIOUS_METALS,"999 Silver Bar",2024-04-12,,500,230,0,,,,,,,,,\nEQUITY,"TCS Shares",2024-06-15,,,,,,100,3450,4120,,,,,,\nREAL_ESTATE,"Bangalore Flat",2023-01-15,12500000,,,,,,,,,"Indiranagar",1850,16000000,65000,,\nCASH_SAVINGS,"HDFC FD",2025-04-01,1000000,,,,,,,,,,,"HDFC Bank",7.25,2026-04-01\n';
+    const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'portfolio_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('📄 Template CSV downloaded!', 'info');
   });
 
-  // Initialize Firebase (if config exists) & load
+  // Start Auth & Initial Load
   initFirebase();
   loadPortfolio();
 });
