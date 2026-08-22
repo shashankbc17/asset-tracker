@@ -144,15 +144,17 @@ function syncFromCloudFirestore(uid) {
       }
       loadPortfolio();
     } else {
-      // First time user: Upload local starter/current assets to cloud
-      const currentAssets = getLocalAssets();
+      // First time logged in: Initialize personal cloud vault
+      const initialAssets = STARTER_ASSETS;
       const currentRates = getLocalRates();
+      localStorage.setItem('wealth_assets', JSON.stringify(initialAssets));
       docRef.set({
-        assets: currentAssets,
+        assets: initialAssets,
         rates: currentRates,
         updatedAt: new Date().toISOString()
       }).then(() => {
-        showToast('☁️ Initialized personal cloud vault on Firebase!', 'success');
+        showToast('☁️ Initialized your personal cloud vault!', 'success');
+        loadPortfolio();
       });
     }
   }, err => {
@@ -191,12 +193,14 @@ function saveLocalRates(rates) {
 }
 
 function getLocalAssets() {
+  if (!currentUser) {
+    return []; // No data shown when logged out
+  }
   const saved = localStorage.getItem('wealth_assets');
   if (saved) {
     try { return JSON.parse(saved); } catch (e) {}
   }
-  localStorage.setItem('wealth_assets', JSON.stringify(STARTER_ASSETS));
-  return [...STARTER_ASSETS];
+  return [];
 }
 
 function saveLocalAssets(assets) {
@@ -583,6 +587,19 @@ function renderTable(items) {
     return 0;
   });
 
+  if (!currentUser && (window.location.hostname.includes('github.io') || isStandaloneMode)) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-state" style="padding: 60px 20px;">
+          <div class="empty-state-icon">🔒</div>
+          <h3 style="color: #fff; font-size: 1.2rem; margin-bottom: 8px;">Private &amp; Secure Portfolio Vault</h3>
+          <p style="color: var(--text-muted); max-width: 460px; margin: 0 auto;">Click <strong>Sign in with Google</strong> in the top header to view and manage your assets.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
@@ -783,11 +800,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Logout Handler
+  // Logout Handler - Clear local session securely
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     if (firebase.auth) {
       firebase.auth().signOut().then(() => {
-        showToast('Signed out of cloud account', 'info');
+        currentUser = null;
+        localStorage.removeItem('wealth_assets');
+        updateAuthUI(null);
+        showToast('Signed out. Your private data has been safely cleared from this screen.', 'info');
+        loadPortfolio();
       });
     }
   });
@@ -840,6 +861,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Form Submit Handler
   document.getElementById('asset-form').addEventListener('submit', (e) => {
     e.preventDefault();
+
+    if (!currentUser && (window.location.hostname.includes('github.io') || isStandaloneMode)) {
+      showToast('🔒 Please Sign In with Google at the top to add or manage your assets!', 'warning');
+      return;
+    }
 
     const assetType = document.getElementById('asset-type-select').value;
     const name = document.getElementById('asset-name').value.trim();
