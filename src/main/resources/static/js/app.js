@@ -558,31 +558,23 @@ function handleExportCSV() {
 
 function handleDownloadTemplate() {
   const templateContent = `Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date
-PRECIOUS_METALS,"22K Gold Bangles (41g)",2025-05-03,358955,41,8755,4,,,,,,,,,,,
-PRECIOUS_METALS,"Gold Minted Coin (1g)",2025-09-14,10190,1,10190,0,,,,,,,,,,,
-PRECIOUS_METALS,"22K Bridal Gold Jewelry (80.2g)",2025-11-02,951573,80.2,11865,4,,,,,,,,,,,
-PRECIOUS_METALS,"24K Gold Bar (10g)",2025-12-23,124990,10,12499,0,,,,,,,,,,,
-PRECIOUS_METALS,"Silver Ingot Bullion (2kg)",2025-11-02,426000,2000,213,0,,,,,,,,,,,
-PRECIOUS_METALS,"Silver Puja Coins (1kg)",2025-11-02,190000,1000,190,0,,,,,,,,,,,
-PRECIOUS_METALS,"999 Fine Silver Bar (500g)",2025-12-23,115000,500,230,0,,,,,,,,,,,
-EQUITY,"Direct Equity Shares Portfolio",2024-01-01,200000,,,,EQUITY,200,1000,1350,,,,,,
-EQUITY,"Long-Term Equity Mutual Funds",2024-01-01,1000000,,,,MF,1000,1000,1420,,,,,,
-REAL_ESTATE,"Residential House Property",2023-01-15,5000000,,,,,,,,"Bengaluru",1800,6500000,35000,,
-REAL_ESTATE,"Gublala Prime Property",2020-01-01,30000000,,,,,,,,"Gublala, Bengaluru",4000,30000000,0,,
-CASH_SAVINGS,"Fixed Deposit 1",2025-01-01,200000,,,,,,,,,,,"Bank FD",7.25,2026-01-01
-CASH_SAVINGS,"Fixed Deposit 2",2025-01-01,200000,,,,,,,,,,,"Bank FD",7.25,2026-01-01
-CASH_SAVINGS,"PPF Account",2024-01-01,300000,,,,,,,,,,,"Public Provident Fund",7.10,2039-01-01
-CASH_SAVINGS,"Running Recurring Deposit (RD)",2025-01-01,100000,,,,,,,,,,,"Bank RD",6.80,2026-01-01
+PRECIOUS_METALS,"24K Gold Bar (100g)",2024-01-10,620000,100,6200,0,,,,,,,,,,,
+PRECIOUS_METALS,"999 Fine Silver Bar (500g)",2024-04-12,115000,500,230,0,,,,,,,,,,,
+PRECIOUS_METALS,"22K Gold Jewelry Sample",2024-11-02,500000,50,10000,4,,,,,,,,,,,
+EQUITY,"Sample Equity Stock",2024-06-15,100000,,,,SAMPLE,100,1000,1250,,,,,,
+EQUITY,"Nifty 50 Index ETF",2024-03-10,50000,,,,NIFTYBEES,200,250,280,,,,,,
+REAL_ESTATE,"Sample Residential Apartment",2023-01-15,8000000,,,,,,,,"City Center",1500,9500000,30000,,
+CASH_SAVINGS,"Sample Bank Fixed Deposit",2025-04-01,500000,,,,,,,,,,,"Bank FD",7.25,2026-04-01
 `;
   const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', 'shashank_portfolio_import.csv');
+  link.setAttribute('download', 'wealth_portfolio_template.csv');
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  showToast('📥 Downloaded your Google Sheet portfolio CSV!', 'success');
+  showToast('📄 Sample CSV template downloaded!', 'info');
 }
 
 // -------------------------------------------------------------
