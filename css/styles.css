@@ -979,3 +979,199 @@ tr:last-child td {
   from { opacity: 1; transform: translateY(0); }
   to { opacity: 0; transform: translateY(-8px); }
 }
+
+/* ============================================================
+   RESPONSIVE MOBILE STYLES (< 992px & < 768px & < 480px)
+   ============================================================ */
+
+@media (max-width: 992px) {
+  .layout {
+    grid-template-columns: 1fr !important;
+    gap: 24px;
+  }
+
+  .form-section {
+    position: static !important;
+  }
+
+  .summary-cards {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 10px 8px !important;
+  }
+
+  .container {
+    gap: 12px !important;
+  }
+
+  /* Header */
+  .app-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .app-title-group {
+    width: 100% !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+  }
+
+  .app-title-group h1 {
+    font-size: 1.2rem !important;
+  }
+
+  .header-right-group {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .user-auth-section {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* Top Bar */
+  .top-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .rate-inputs {
+    grid-template-columns: 1fr 1fr !important;
+    width: 100% !important;
+  }
+
+  .action-bar {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .action-bar .btn {
+    text-align: center;
+    justify-content: center;
+    padding: 8px 6px !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* Summary Cards */
+  .summary-cards {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .stat-card {
+    padding: 12px 10px !important;
+  }
+
+  .stat-value {
+    font-size: 1.05rem !important;
+  }
+
+  .stat-label {
+    font-size: 0.7rem !important;
+  }
+
+  /* Filter Tabs */
+  .filter-tabs {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 4px !important;
+    display: flex !important;
+    gap: 6px !important;
+  }
+
+  .filter-tab {
+    padding: 6px 12px !important;
+    font-size: 0.75rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Table on Mobile: Card-style Holdings View */
+  .table-container {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  table, thead, tbody, th, td, tr {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  thead tr {
+    position: absolute !important;
+    top: -9999px !important;
+    left: -9999px !important;
+  }
+
+  tbody tr {
+    background: var(--surface) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: 12px !important;
+    padding: 12px 14px !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+
+  td {
+    border: none !important;
+    padding: 5px 0 !important;
+    text-align: left !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 0.85rem !important;
+  }
+
+  td:first-child {
+    border-bottom: 1px solid var(--border-color) !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 6px !important;
+  }
+
+  td:last-child {
+    border-top: 1px solid var(--border-color) !important;
+    padding-top: 8px !important;
+    margin-top: 6px !important;
+    justify-content: flex-end !important;
+  }
+
+  td:nth-of-type(2)::before { content: "Metric / Qty:"; color: var(--text-dim); font-size: 0.75rem; font-weight: 600; }
+  td:nth-of-type(3)::before { content: "Invested:"; color: var(--text-dim); font-size: 0.75rem; font-weight: 600; }
+  td:nth-of-type(4)::before { content: "Current Value:"; color: var(--text-dim); font-size: 0.75rem; font-weight: 600; }
+  td:nth-of-type(5)::before { content: "Gains / CAGR:"; color: var(--text-dim); font-size: 0.75rem; font-weight: 600; }
+
+  .cell-asset-info {
+    max-width: calc(100vw - 90px) !important;
+  }
+
+  .asset-thumb {
+    width: 44px !important;
+    height: 44px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .action-btns .btn {
+    padding: 6px 12px !important;
+    font-size: 0.78rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .summary-cards {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .rate-inputs {
+    grid-template-columns: 1fr !important;
+  }
+}
