@@ -1,6 +1,7 @@
 /**
  * Personal Net Worth & Multi-Asset Tracker - Hybrid Client Application
  * Strictly Authenticated Cloud Sync (Firebase + Google Sign-In)
+ * Full Desktop & Mobile Responsive Engine + CSV Bulk Tools
  */
 
 const API_BASE = '/api';
@@ -147,7 +148,7 @@ function syncFromCloudFirestore(uid) {
         rates: currentRates,
         updatedAt: new Date().toISOString()
       }).then(() => {
-        showToast('☁️ Initialized your fresh private cloud vault!', 'success');
+        showToast('☁️ Initialized your private cloud vault!', 'success');
         loadPortfolio();
       });
     }
@@ -426,6 +427,149 @@ async function deleteAsset(id) {
 }
 
 // -------------------------------------------------------------
+// CSV IMPORT & EXPORT ENGINE
+// -------------------------------------------------------------
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  const parseRow = (rowStr) => {
+    const row = [];
+    let inQuotes = false;
+    let current = '';
+    for (let i = 0; i < rowStr.length; i++) {
+      const char = rowStr[i];
+      if (char === '"' || char === "'") {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        row.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    row.push(current.trim());
+    return row;
+  };
+
+  const headers = parseRow(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+  const parsedAssets = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseRow(lines[i]);
+    if (values.length === 0 || !values.some(v => v.length > 0)) continue;
+
+    const rowObj = {};
+    headers.forEach((h, idx) => {
+      rowObj[h] = values[idx] || '';
+    });
+
+    const rawType = (rowObj['assettype'] || rowObj['type'] || 'PRECIOUS_METALS').toUpperCase();
+    let assetType = 'PRECIOUS_METALS';
+    if (rawType.includes('EQUITY') || rawType.includes('STOCK')) assetType = 'EQUITY';
+    else if (rawType.includes('REAL') || rawType.includes('ESTATE') || rawType.includes('PROPERTY')) assetType = 'REAL_ESTATE';
+    else if (rawType.includes('CASH') || rawType.includes('FD') || rawType.includes('DEPOSIT')) assetType = 'CASH_SAVINGS';
+
+    const name = rowObj['name'] || rowObj['assetname'] || rowObj['title'] || 'Imported Asset';
+    const purchaseDate = rowObj['date'] || rowObj['purchasedate'] || new Date().toISOString().split('T')[0];
+
+    const asset = {
+      assetType,
+      name,
+      purchaseDate,
+      userId: currentUser ? currentUser.uid : 'default'
+    };
+
+    if (assetType === 'PRECIOUS_METALS') {
+      const isGold = (rowObj['metaltype'] || name).toUpperCase().includes('SILVER') ? 'SILVER' : 'GOLD';
+      asset.metalType = isGold;
+      asset.categoryType = (rowObj['category'] || name).toUpperCase().includes('JEWEL') ? 'JEWELRY' : 'COIN_BAR';
+      asset.grams = parseFloat(rowObj['grams'] || rowObj['weight'] || 0) || 0;
+      asset.rateBought = parseFloat(rowObj['ratebought'] || rowObj['rate'] || rowObj['buyrate'] || 0) || 0;
+      asset.deduction = parseFloat(rowObj['deduction'] || (asset.categoryType === 'JEWELRY' ? 4 : 0)) || 0;
+      asset.investedAmount = parseFloat(rowObj['invested'] || rowObj['investedamount']) || (asset.grams * asset.rateBought);
+    } else if (assetType === 'EQUITY') {
+      asset.ticker = (rowObj['ticker'] || rowObj['symbol'] || '').toUpperCase();
+      asset.quantity = parseFloat(rowObj['quantity'] || rowObj['qty'] || 0) || 0;
+      asset.buyPrice = parseFloat(rowObj['buyprice'] || rowObj['price'] || 0) || 0;
+      asset.currentPrice = parseFloat(rowObj['cmp'] || rowObj['currentprice'] || asset.buyPrice) || 0;
+      asset.investedAmount = parseFloat(rowObj['invested'] || rowObj['investedamount']) || (asset.quantity * asset.buyPrice);
+    } else if (assetType === 'REAL_ESTATE') {
+      asset.location = rowObj['location'] || rowObj['city'] || 'Bengaluru';
+      asset.areaSqFt = parseFloat(rowObj['areasqft'] || rowObj['sqft'] || rowObj['area'] || 0) || 0;
+      asset.investedAmount = parseFloat(rowObj['invested'] || rowObj['purchaseprice'] || rowObj['investedamount'] || 0) || 0;
+      asset.estimatedMarketValue = parseFloat(rowObj['estimatedvalue'] || rowObj['currentvalue'] || asset.investedAmount) || 0;
+      asset.monthlyRentalIncome = parseFloat(rowObj['monthlyrent'] || rowObj['rent'] || 0) || 0;
+    } else if (assetType === 'CASH_SAVINGS') {
+      asset.bankName = rowObj['bankname'] || rowObj['bank'] || 'Savings Account';
+      asset.investedAmount = parseFloat(rowObj['invested'] || rowObj['deposit'] || rowObj['investedamount'] || 0) || 0;
+      asset.interestRatePct = parseFloat(rowObj['interestrate'] || rowObj['rate'] || 0) || 0;
+      asset.maturityDate = rowObj['maturitydate'] || '';
+    }
+
+    parsedAssets.push(asset);
+  }
+
+  return parsedAssets;
+}
+
+function handleExportCSV() {
+  if (!currentUser) {
+    showToast('🔒 Please Sign In with Google first to export your data!', 'warning');
+    return;
+  }
+  const assets = getLocalAssets();
+  if (assets.length === 0) {
+    showToast('Portfolio is empty. Add assets first before exporting.', 'info');
+    return;
+  }
+  const headers = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\n';
+  const rows = assets.map(a => [
+    a.assetType || '',
+    `"${(a.name || '').replace(/"/g, '""')}"`,
+    a.purchaseDate || '',
+    a.investedAmount || 0,
+    a.grams || '',
+    a.rateBought || '',
+    a.deduction || '',
+    a.ticker || '',
+    a.quantity || '',
+    a.buyPrice || '',
+    a.currentPrice || '',
+    `"${(a.location || '').replace(/"/g, '""')}"`,
+    a.areaSqFt || '',
+    a.estimatedMarketValue || '',
+    a.monthlyRentalIncome || '',
+    `"${(a.bankName || '').replace(/"/g, '""')}"`,
+    a.interestRatePct || '',
+    a.maturityDate || ''
+  ].join(',')).join('\n');
+
+  const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `wealth_portfolio_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('📥 Portfolio CSV exported successfully!', 'success');
+}
+
+function handleDownloadTemplate() {
+  const templateContent = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\nPRECIOUS_METALS,"24K Gold Bar (100g)",2024-01-10,620000,100,6200,0,,,,,,,,,\nPRECIOUS_METALS,"999 Silver Bar (500g)",2024-04-12,115000,500,230,0,,,,,,,,,\nPRECIOUS_METALS,"22K Bridal Gold Necklace",2025-11-02,951573,80.2,11865,4,,,,,,,,,\nEQUITY,"TCS Shares",2024-06-15,345000,,,,100,3450,4120,,,,,,\nEQUITY,"Nifty 50 ETF",2024-03-10,107500,,,,500,215,268,,,,,,\nREAL_ESTATE,"Indiranagar Luxury 3BHK",2023-01-15,12500000,,,,,,,,"Indiranagar, Bengaluru",1850,16000000,65000,,\nCASH_SAVINGS,"HDFC High Yield FD",2025-04-01,1000000,,,,,,,,,,,"HDFC Bank",7.25,2026-04-01\n';
+  const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'wealth_portfolio_template.csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('📄 Sample CSV template downloaded!', 'info');
+}
+
+// -------------------------------------------------------------
 // UI RENDERING
 // -------------------------------------------------------------
 function updateUI() {
@@ -552,7 +696,7 @@ function renderTable(items) {
       <tr>
         <td colspan="6" class="empty-state">
           <div class="empty-state-icon">💼</div>
-          <p>Your portfolio is currently empty. Add your first asset using the form on the left!</p>
+          <p>Your portfolio is currently empty. Add your first asset using the form on the left or click <strong>📂 Bulk CSV Import</strong>!</p>
         </td>
       </tr>
     `;
@@ -719,11 +863,87 @@ document.addEventListener('DOMContentLoaded', () => {
     const silver = document.getElementById('global-silver').value;
     updateMarketRates(gold, silver);
   };
-  document.getElementById('global-gold').addEventListener('change', rateHandler);
-  document.getElementById('global-silver').addEventListener('change', rateHandler);
+  document.getElementById('global-gold')?.addEventListener('change', rateHandler);
+  document.getElementById('global-silver')?.addEventListener('change', rateHandler);
 
-  // Sync button - only updates rate inputs if logged out
-  document.getElementById('sync-btn').addEventListener('click', syncLiveRates);
+  // 1. Recalculate Portfolio Button
+  const syncBtn = document.getElementById('sync-btn');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', syncLiveRates);
+  }
+
+  // 2. CSV Template Button (Binds to both ID variants)
+  const bindTemplate = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handleDownloadTemplate);
+  };
+  bindTemplate('btn-template');
+  bindTemplate('template-btn');
+
+  // 3. Export CSV Button (Binds to both ID variants)
+  const bindExport = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', handleExportCSV);
+  };
+  bindExport('btn-export');
+  bindExport('export-csv-btn');
+
+  // 4. Bulk CSV Import Button & File Input
+  const importBtn = document.getElementById('btn-import') || document.getElementById('import-csv-btn');
+  const fileInput = document.getElementById('csv-file-input');
+
+  if (importBtn && fileInput) {
+    importBtn.addEventListener('click', () => {
+      if (!currentUser) {
+        showToast('🔒 Please Sign In with Google first to import assets into your cloud portfolio!', 'warning');
+        return;
+      }
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!currentUser) {
+        showToast('🔒 Please Sign In with Google first!', 'warning');
+        return;
+      }
+
+      showToast(`⏳ Reading and importing "${file.name}"...`, 'info');
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const content = event.target.result;
+          const newAssets = parseCSV(content);
+          if (newAssets.length === 0) {
+            showToast('⚠️ No valid asset rows found in CSV. Please use the CSV Template format.', 'error');
+            return;
+          }
+
+          let existing = getLocalAssets();
+          let currentMaxId = existing.length > 0 ? Math.max(...existing.map(a => a.id || 0)) : 0;
+
+          newAssets.forEach(a => {
+            currentMaxId += 1;
+            a.id = currentMaxId;
+            existing.unshift(a);
+          });
+
+          saveLocalAssets(existing);
+          loadPortfolio();
+          showToast(`🎉 Successfully imported ${newAssets.length} assets into your portfolio!`, 'success');
+        } catch (err) {
+          console.error('Import error:', err);
+          showToast(`Import failed: ${err.message}`, 'error');
+        } finally {
+          fileInput.value = '';
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
 
   // Google Login Handler - Direct Google Sign-In Popup
   document.getElementById('google-login-btn')?.addEventListener('click', async () => {
@@ -806,13 +1026,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Sort Selector
-  document.getElementById('sort-by').addEventListener('change', (e) => {
+  document.getElementById('sort-by')?.addEventListener('change', (e) => {
     currentSort = e.target.value;
     renderTable(currentSummary?.items || []);
   });
 
   // Form Submit Handler
-  document.getElementById('asset-form').addEventListener('submit', (e) => {
+  document.getElementById('asset-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
 
     if (!currentUser) {
@@ -861,64 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Cancel Edit
-  document.getElementById('cancel-btn').addEventListener('click', resetForm);
-
-  // CSV Export & Template
-  document.getElementById('export-csv-btn').addEventListener('click', () => {
-    if (!currentUser) {
-      showToast('🔒 Please Sign In with Google first to export your data!', 'warning');
-      return;
-    }
-    const assets = getLocalAssets();
-    if (assets.length === 0) {
-      showToast('Portfolio is empty. Add assets first to export.', 'info');
-      return;
-    }
-    const headers = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\n';
-    const rows = assets.map(a => [
-      a.assetType || '',
-      `"${a.name || ''}"`,
-      a.purchaseDate || '',
-      a.investedAmount || 0,
-      a.grams || '',
-      a.rateBought || '',
-      a.deduction || '',
-      a.ticker || '',
-      a.quantity || '',
-      a.buyPrice || '',
-      a.currentPrice || '',
-      `"${a.location || ''}"`,
-      a.areaSqFt || '',
-      a.estimatedMarketValue || '',
-      a.monthlyRentalIncome || '',
-      `"${a.bankName || ''}"`,
-      a.interestRatePct || '',
-      a.maturityDate || ''
-    ].join(',')).join('\n');
-
-    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `wealth_portfolio_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('📥 Portfolio CSV downloaded!', 'success');
-  });
-
-  document.getElementById('template-btn').addEventListener('click', () => {
-    const templateContent = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\nPRECIOUS_METALS,"24K Gold Bar",2024-01-10,,100,6200,0,,,,,,,,,\nPRECIOUS_METALS,"999 Silver Bar",2024-04-12,,500,230,0,,,,,,,,,\nEQUITY,"TCS Shares",2024-06-15,,,,,,100,3450,4120,,,,,,\nREAL_ESTATE,"Bangalore Flat",2023-01-15,12500000,,,,,,,,,"Indiranagar",1850,16000000,65000,,\nCASH_SAVINGS,"HDFC FD",2025-04-01,1000000,,,,,,,,,,,"HDFC Bank",7.25,2026-04-01\n';
-    const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'portfolio_template.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('📄 Template CSV downloaded!', 'info');
-  });
+  document.getElementById('cancel-btn')?.addEventListener('click', resetForm);
 
   // Start Auth & Initial Load
   initFirebase();
