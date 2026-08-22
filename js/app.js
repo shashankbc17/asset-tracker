@@ -17,6 +17,17 @@ let currentUser = null;
 let firestoreDb = null;
 let firebaseInitialized = false;
 
+// Default Firebase Project Configuration
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCfsEG-1jGkImSumkNFqKVnyaSiXHkT8ys",
+  authDomain: "my-wealth-tracker-50d2c.firebaseapp.com",
+  projectId: "my-wealth-tracker-50d2c",
+  storageBucket: "my-wealth-tracker-50d2c.firebasestorage.app",
+  messagingSenderId: "749131807291",
+  appId: "1:749131807291:web:89cab5dbd316e5ed2dfa1e",
+  measurementId: "G-HWGSD19563"
+};
+
 // 13 Starter Luxury Holdings
 const STARTER_ASSETS = [
   { id: 1, assetType: 'PRECIOUS_METALS', name: '24K Minted Gold Bar (100g)', purchaseDate: '2024-01-10', investedAmount: 620000, metalType: 'GOLD', categoryType: 'COIN_BAR', grams: 100, rateBought: 6200, deduction: 0 },
@@ -65,14 +76,13 @@ function showToast(message, type = 'info') {
 // FIREBASE AUTHENTICATION & CLOUD SYNC ENGINE
 // -------------------------------------------------------------
 function initFirebase() {
+  let config = DEFAULT_FIREBASE_CONFIG;
   const savedConfig = localStorage.getItem('firebase_web_config');
-  if (!savedConfig) {
-    console.log('No Firebase config found. Running in local/offline mode.');
-    return;
+  if (savedConfig) {
+    try { config = JSON.parse(savedConfig); } catch (e) {}
   }
 
   try {
-    const config = JSON.parse(savedConfig);
     if (!firebase.apps.length) {
       firebase.initializeApp(config);
     }
