@@ -105,6 +105,13 @@ function updateAuthUI(user) {
   const profileBadge = document.getElementById('user-profile-badge');
   const userName = document.getElementById('user-name');
   const userAvatar = document.getElementById('user-avatar');
+  const configBtn = document.getElementById('cloud-config-btn');
+
+  // Admin access check: only show gear icon for owner/admin
+  const isAdmin = window.location.search.includes('admin=true') || (user && user.email && (user.email.toLowerCase().includes('shashank') || user.email.toLowerCase().includes('shashankbc17')));
+  if (configBtn) {
+    configBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+  }
 
   if (user) {
     if (loginBtn) loginBtn.style.display = 'none';
