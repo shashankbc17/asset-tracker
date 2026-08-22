@@ -1117,21 +1117,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Filter Tabs
-  document.querySelectorAll('.filter-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      currentFilterType = tab.dataset.filter;
+  // Filter Tabs / Filter Chips
+  document.querySelectorAll('.filter-chip, .filter-tab').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.filter-chip, .filter-tab').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentFilterType = chip.dataset.filterType || chip.dataset.filter || 'ALL';
       renderTable(currentSummary?.items || []);
     });
   });
 
   // Sort Selector
-  document.getElementById('sort-by')?.addEventListener('change', (e) => {
-    currentSort = e.target.value;
-    renderTable(currentSummary?.items || []);
-  });
+  const sortSelect = document.getElementById('sort-select') || document.getElementById('sort-by');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      currentSort = e.target.value;
+      renderTable(currentSummary?.items || []);
+    });
+  }
 
   // Form Submit Handler
   document.getElementById('asset-form')?.addEventListener('submit', (e) => {
