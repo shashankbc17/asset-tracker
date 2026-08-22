@@ -10,7 +10,6 @@ let currentSummary = null;
 let currentFilterType = 'ALL';
 let currentSort = 'value-desc';
 let editingId = null;
-let isStandaloneMode = true;
 
 // Firebase & Auth State
 let currentUser = null;
@@ -28,23 +27,6 @@ const DEFAULT_FIREBASE_CONFIG = {
   appId: "1:749131807291:web:89cab5dbd316e5ed2dfa1e",
   measurementId: "G-HWGSD19563"
 };
-
-// 13 Starter Luxury Holdings (Loaded only on first-time personal cloud initialization)
-const STARTER_ASSETS = [
-  { id: 1, assetType: 'PRECIOUS_METALS', name: '24K Minted Gold Bar (100g)', purchaseDate: '2024-01-10', investedAmount: 620000, metalType: 'GOLD', categoryType: 'COIN_BAR', grams: 100, rateBought: 6200, deduction: 0 },
-  { id: 2, assetType: 'PRECIOUS_METALS', name: '999 Fine Silver Bullion Bar (500g)', purchaseDate: '2024-04-12', investedAmount: 115000, metalType: 'SILVER', categoryType: 'COIN_BAR', grams: 500, rateBought: 230, deduction: 0 },
-  { id: 3, assetType: 'PRECIOUS_METALS', name: '22K Bridal Gold Necklace', purchaseDate: '2025-11-02', investedAmount: 951573, metalType: 'GOLD', categoryType: 'JEWELRY', grams: 80.2, rateBought: 11865, deduction: 4 },
-  { id: 4, assetType: 'PRECIOUS_METALS', name: 'Silver Ingot Bullion (2kg)', purchaseDate: '2025-11-02', investedAmount: 426000, metalType: 'SILVER', categoryType: 'COIN_BAR', grams: 2000, rateBought: 213, deduction: 0 },
-  { id: 5, assetType: 'PRECIOUS_METALS', name: 'Silver Puja Coins (1kg)', purchaseDate: '2025-11-02', investedAmount: 190000, metalType: 'SILVER', categoryType: 'COIN_BAR', grams: 1000, rateBought: 190, deduction: 0 },
-  { id: 6, assetType: 'PRECIOUS_METALS', name: 'Gold Minted Coin (1g)', purchaseDate: '2025-09-14', investedAmount: 10190, metalType: 'GOLD', categoryType: 'COIN_BAR', grams: 1.0, rateBought: 10190, deduction: 0 },
-  { id: 7, assetType: 'PRECIOUS_METALS', name: '22K Gold Bangles (41g)', purchaseDate: '2025-05-03', investedAmount: 358955, metalType: 'GOLD', categoryType: 'JEWELRY', grams: 41.0, rateBought: 8755, deduction: 4 },
-  { id: 8, assetType: 'EQUITY', name: 'TCS (Tata Consultancy Services)', purchaseDate: '2024-06-15', investedAmount: 345000, ticker: 'TCS', quantity: 100, buyPrice: 3450, currentPrice: 4120 },
-  { id: 9, assetType: 'EQUITY', name: 'Nifty 50 Index ETF', purchaseDate: '2024-03-10', investedAmount: 107500, ticker: 'NIFTYBEES', quantity: 500, buyPrice: 215, currentPrice: 268 },
-  { id: 10, assetType: 'REAL_ESTATE', name: 'Indiranagar Luxury 3BHK', purchaseDate: '2023-01-15', investedAmount: 12500000, location: 'Bengaluru, Indiranagar', areaSqFt: 1850, estimatedMarketValue: 16000000, monthlyRentalIncome: 65000 },
-  { id: 11, assetType: 'REAL_ESTATE', name: 'North Bangalore Villa Plot', purchaseDate: '2022-08-20', investedAmount: 4500000, location: 'Devanahalli, Bengaluru', areaSqFt: 2400, estimatedMarketValue: 6800000, monthlyRentalIncome: 0 },
-  { id: 12, assetType: 'CASH_SAVINGS', name: 'HDFC High Yield 1-Yr FD', purchaseDate: '2025-04-01', investedAmount: 1000000, bankName: 'HDFC Bank', interestRatePct: 7.25, maturityDate: '2026-04-01' },
-  { id: 13, assetType: 'CASH_SAVINGS', name: 'SBI Emergency Liquid Reserve', purchaseDate: '2025-01-01', investedAmount: 500000, bankName: 'State Bank of India', interestRatePct: 3.5, maturityDate: '' }
-];
 
 // Currency Formatter
 const formatCurrency = (val) => {
@@ -104,7 +86,6 @@ function initFirebase() {
         showToast(`👤 Signed in as ${user.displayName || user.email}`, 'success');
         syncFromCloudFirestore(user.uid);
       } else {
-        // Unsubscribe from any previous Firestore listener on logout
         if (firestoreUnsubscribe) {
           firestoreUnsubscribe();
           firestoreUnsubscribe = null;
@@ -150,16 +131,15 @@ function syncFromCloudFirestore(uid) {
 
     if (doc.exists) {
       const data = doc.data();
-      if (data.assets && Array.isArray(data.assets)) {
-        localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(data.assets));
-      }
+      const userAssets = (data.assets && Array.isArray(data.assets)) ? data.assets : [];
+      localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(userAssets));
       if (data.rates) {
         localStorage.setItem(`metals_rates_${uid}`, JSON.stringify(data.rates));
       }
       loadPortfolio();
     } else {
-      // First-time user: Initialize personal cloud vault
-      const initialAssets = STARTER_ASSETS;
+      // First-time user: Initialize with empty personal vault
+      const initialAssets = [];
       const currentRates = getLocalRates();
       localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(initialAssets));
       docRef.set({
@@ -167,7 +147,7 @@ function syncFromCloudFirestore(uid) {
         rates: currentRates,
         updatedAt: new Date().toISOString()
       }).then(() => {
-        showToast('☁️ Initialized your personal cloud vault!', 'success');
+        showToast('☁️ Initialized your fresh private cloud vault!', 'success');
         loadPortfolio();
       });
     }
@@ -218,7 +198,7 @@ function saveLocalRates(rates) {
 
 function getLocalAssets() {
   if (!currentUser) {
-    return []; // STRICT: Zero data shown when not signed in
+    return []; // STRICT: Zero data when not signed in
   }
   const saved = localStorage.getItem(`wealth_assets_${currentUser.uid}`);
   if (saved) {
@@ -236,9 +216,8 @@ function saveLocalAssets(assets) {
 // -------------------------------------------------------------
 // NET WORTH VALUATION ENGINE
 // -------------------------------------------------------------
-function calculateStandaloneSummary() {
+function calculateSummary() {
   if (!currentUser) {
-    // Return completely empty summary when logged out
     return {
       totalNetWorth: 0,
       totalInvested: 0,
@@ -374,25 +353,8 @@ function calculateStandaloneSummary() {
 // -------------------------------------------------------------
 // LOAD & SYNC PORTFOLIO
 // -------------------------------------------------------------
-async function loadPortfolio() {
-  if (!currentUser) {
-    // STRICT: When not logged in, zero out all metrics & display locked screen
-    currentSummary = {
-      totalNetWorth: 0,
-      totalInvested: 0,
-      totalProfitLoss: 0,
-      overallReturnPct: 0,
-      netProfitable: true,
-      rates: getLocalRates(),
-      allocations: [],
-      items: []
-    };
-    updateUI();
-    return;
-  }
-
-  isStandaloneMode = true;
-  currentSummary = calculateStandaloneSummary();
+function loadPortfolio() {
+  currentSummary = calculateSummary();
   updateUI();
 }
 
@@ -590,7 +552,7 @@ function renderTable(items) {
       <tr>
         <td colspan="6" class="empty-state">
           <div class="empty-state-icon">💼</div>
-          <p>No asset records found in this category. Add an asset using the form on the left.</p>
+          <p>Your portfolio is currently empty. Add your first asset using the form on the left!</p>
         </td>
       </tr>
     `;
@@ -732,7 +694,7 @@ function toggleFormFieldsets(type) {
 // INITIALIZATION & EVENT LISTENERS
 // -------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
-  // Wipe out any legacy unauthenticated storage
+  // Clear any unauthenticated stale cache completely
   localStorage.removeItem('wealth_assets');
 
   // Set default date
@@ -908,6 +870,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const assets = getLocalAssets();
+    if (assets.length === 0) {
+      showToast('Portfolio is empty. Add assets first to export.', 'info');
+      return;
+    }
     const headers = 'Asset Type,Name,Date,Invested,Grams,Rate Bought,Deduction,Ticker,Quantity,Buy Price,CMP,Location,Area SqFt,Estimated Value,Monthly Rent,Bank Name,Interest Rate,Maturity Date\n';
     const rows = assets.map(a => [
       a.assetType || '',
