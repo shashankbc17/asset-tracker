@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './', // Ensures assets load correctly on GitHub Pages & relative paths
+  base: '/asset-tracker/', // Absolute repo subpath prevents 404s on GitHub Pages on all browsers
   server: {
     port: 5173,
     proxy: {

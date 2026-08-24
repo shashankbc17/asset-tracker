@@ -10,8 +10,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-C2Zn9mOX.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CuJ_sT1O.css">
+  <script>
+    // Ensure trailing slash on GitHub Pages so asset subpaths always resolve correctly
+    if (!window.location.pathname.endsWith('/') && !window.location.pathname.includes('.')) {
+      window.history.replaceState(null, '', window.location.pathname + '/' + window.location.search + window.location.hash);
+    }
+  </script>
+  <script type="module" crossorigin src="/asset-tracker/assets/index-BaCTlVy9.js"></script>
+  <link rel="stylesheet" crossorigin href="/asset-tracker/assets/index-CuJ_sT1O.css">
 </head>
 <body class="bg-slate-950 text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950">
   <div id="root"></div>
