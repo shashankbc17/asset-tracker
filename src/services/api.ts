@@ -7,7 +7,8 @@ const LOCAL_STORAGE_KEY = 'precious_metals_assets_v3';
 export async function getAssets(userId = 'default_user', rates?: MetalRates): Promise<Asset[]> {
   try {
     const res = await fetch(`/api/assets?userId=${encodeURIComponent(userId)}`);
-    if (res.ok) {
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
       const data: Asset[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const currentRates = rates || await fetchCurrentRates();
@@ -17,8 +18,8 @@ export async function getAssets(userId = 'default_user', rates?: MetalRates): Pr
         }));
       }
     }
-  } catch (err) {
-    console.warn('API /api/assets call failed, falling back to local cache:', err);
+  } catch {
+    // Expected on static hosting like GitHub Pages
   }
 
   // Fallback to localStorage
@@ -26,11 +27,13 @@ export async function getAssets(userId = 'default_user', rates?: MetalRates): Pr
   if (local) {
     try {
       const parsed: Asset[] = JSON.parse(local);
-      const currentRates = rates || await fetchCurrentRates();
-      return parsed.map((a) => ({
-        ...a,
-        metrics: calculateAssetMetrics(a, currentRates),
-      }));
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const currentRates = rates || await fetchCurrentRates();
+        return parsed.map((a) => ({
+          ...a,
+          metrics: calculateAssetMetrics(a, currentRates),
+        }));
+      }
     } catch {
       // ignore
     }
@@ -156,11 +159,12 @@ export async function createOrUpdateAsset(asset: Asset, userId = 'default_user')
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (res.ok) {
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
       return await res.json();
     }
-  } catch (err) {
-    console.warn('Backend save failed, storing in localStorage:', err);
+  } catch {
+    // Expected on static hosting
   }
 
   // Local storage fallback
@@ -186,8 +190,8 @@ export async function deleteAsset(id: number, userId = 'default_user'): Promise<
   try {
     const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
     if (res.ok) return true;
-  } catch (err) {
-    console.warn('Backend delete failed, removing locally:', err);
+  } catch {
+    // Expected on static hosting
   }
 
   const local = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userId}`);
@@ -202,11 +206,12 @@ export async function deleteAsset(id: number, userId = 'default_user'): Promise<
 export async function getNetWorthSummary(userId = 'default_user', assets?: Asset[], rates?: MetalRates): Promise<NetWorthSummary> {
   try {
     const res = await fetch(`/api/assets/summary?userId=${encodeURIComponent(userId)}`);
-    if (res.ok) {
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
       return await res.json();
     }
-  } catch (err) {
-    console.warn('Backend summary failed, computing dynamically:', err);
+  } catch {
+    // Fallback
   }
 
   const currentRates = rates || await fetchCurrentRates();
@@ -217,7 +222,8 @@ export async function getNetWorthSummary(userId = 'default_user', assets?: Asset
 export async function syncLiveMarketRates(): Promise<MetalRates> {
   try {
     const res = await fetch('/api/portfolio/rates/sync', { method: 'POST' });
-    if (res.ok) {
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
       const data = await res.json();
       return {
         gold: data.goldRate || data.gold,
@@ -228,8 +234,8 @@ export async function syncLiveMarketRates(): Promise<MetalRates> {
         source: 'Live Bangalore Rates Sync',
       };
     }
-  } catch (e) {
-    console.warn('Live rate sync API failed:', e);
+  } catch {
+    // Fallback
   }
   return await fetchCurrentRates();
 }
@@ -241,7 +247,8 @@ export async function updateManualRates(rates: { gold: number; silver: number })
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rates),
     });
-    if (res.ok) {
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
       const data = await res.json();
       return {
         gold: data.goldRate || data.gold,
@@ -252,8 +259,8 @@ export async function updateManualRates(rates: { gold: number; silver: number })
         source: 'Custom User Rate',
       };
     }
-  } catch (e) {
-    console.warn('Manual rate update API failed:', e);
+  } catch {
+    // Fallback
   }
   return {
     gold: rates.gold,

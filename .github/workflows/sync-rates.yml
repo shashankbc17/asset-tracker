@@ -47,10 +47,12 @@ jobs:
               with open('rates.json', 'w') as f:
                   json.dump(rates, f, indent=2)
               
-              # Also copy to static folder
+              # Also copy to static and public folder
               try:
                   with open('src/main/resources/static/rates.json', 'w') as f2:
                       json.dump(rates, f2, indent=2)
+                  with open('public/rates.json', 'w') as f3:
+                      json.dump(rates, f3, indent=2)
               except Exception:
                   pass
                   
@@ -64,5 +66,5 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add rates.json src/main/resources/static/rates.json || true
+          git add rates.json public/rates.json src/main/resources/static/rates.json || true
           git diff --staged --quiet || (git commit -m "⚡ Auto-sync live Bangalore Gold & Silver rates [skip ci]" && git push origin main)
