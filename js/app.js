@@ -1483,11 +1483,13 @@ function toggleFormFieldsets(type) {
   const equityEl = document.getElementById('fields-equity');
   const realEstateEl = document.getElementById('fields-real-estate') || document.getElementById('fields-realestate');
   const cashEl = document.getElementById('fields-cash');
+  const pfEl = document.getElementById('fields-pf');
 
   if (metalsEl) metalsEl.style.display = type === 'PRECIOUS_METALS' ? 'block' : 'none';
   if (equityEl) equityEl.style.display = type === 'EQUITY' ? 'block' : 'none';
   if (realEstateEl) realEstateEl.style.display = type === 'REAL_ESTATE' ? 'block' : 'none';
   if (cashEl) cashEl.style.display = type === 'CASH_SAVINGS' ? 'block' : 'none';
+  if (pfEl) pfEl.style.display = type === 'PROVIDENT_FUND' ? 'block' : 'none';
 
   if (type === 'PRECIOUS_METALS') {
     updateDateRateSuggestion(false);
