@@ -260,7 +260,8 @@ function calculateSummary() {
     'PRECIOUS_METALS': { assetType: 'PRECIOUS_METALS', name: 'Precious Metals', icon: '🪙', investedAmount: 0, currentValue: 0, profitLoss: 0, count: 0 },
     'EQUITY': { assetType: 'EQUITY', name: 'Equities & Mutual Funds', icon: '📈', investedAmount: 0, currentValue: 0, profitLoss: 0, count: 0 },
     'REAL_ESTATE': { assetType: 'REAL_ESTATE', name: 'Real Estate', icon: '🏡', investedAmount: 0, currentValue: 0, profitLoss: 0, count: 0 },
-    'CASH_SAVINGS': { assetType: 'CASH_SAVINGS', name: 'Cash & Fixed Deposits', icon: '💰', investedAmount: 0, currentValue: 0, profitLoss: 0, count: 0 }
+    'CASH_SAVINGS': { assetType: 'CASH_SAVINGS', name: 'Cash & Fixed Deposits', icon: '💰', investedAmount: 0, currentValue: 0, profitLoss: 0, count: 0 },
+    'PROVIDENT_FUND': { assetType: 'PROVIDENT_FUND', name: 'PF & Retirement', icon: '🛡️', investedAmount: 0, currentValue: 0, profitLoss: 0, count: 0 }
   };
 
   const items = assets.map(a => {
@@ -302,6 +303,26 @@ function calculateSummary() {
       keyMetric = `${a.interestRatePct || 0}% Interest p.a.`;
       categoryBadge = a.bankName || 'Liquid Reserve';
       imagePath = 'images/cash.jpg';
+    } else if (a.assetType === 'PROVIDENT_FUND') {
+      let initialBalance = a.investedAmount || 0;
+      let isActive = (a.isActiveContribution !== false && a.pfStatus !== 'DORMANT');
+      let monthly = (isActive && a.monthlyContribution) ? a.monthlyContribution : 0;
+      let rate = a.pfInterestRate || 8.25;
+      let years = 0;
+      if (a.purchaseDate) {
+        const pDate = new Date(a.purchaseDate);
+        years = Math.max(0, (today - pDate) / (1000 * 60 * 60 * 24 * 365.25));
+      }
+      let elapsedMonths = Math.floor(years * 12);
+      invested = initialBalance + (monthly * elapsedMonths);
+      let interestOnBase = (years > 0) ? initialBalance * (Math.pow(1.0 + (rate / 100.0), years) - 1.0) : 0;
+      let interestOnContrib = (monthly > 0 && years > 0) ? (monthly * elapsedMonths) * (rate / 200.0) * years : 0;
+      currentVal = invested + interestOnBase + interestOnContrib;
+
+      const monthlyStr = isActive ? `₹${monthly.toLocaleString('en-IN')}/mo • ` : `Dormant • `;
+      keyMetric = `${monthlyStr}${rate}% Govt Rate`;
+      categoryBadge = `${a.pfSchemeType || 'EPF'} • ${isActive ? 'Active' : 'Dormant'}`;
+      imagePath = 'images/pf.jpg';
     }
 
     const profitLoss = currentVal - invested;
@@ -672,7 +693,8 @@ function renderAllocation(allocations) {
     'PRECIOUS_METALS': { bg: 'linear-gradient(90deg, #d4af37, #f7e07c)', dot: '#d4af37' },
     'EQUITY': { bg: 'linear-gradient(90deg, #4da6ff, #0066cc)', dot: '#4da6ff' },
     'REAL_ESTATE': { bg: 'linear-gradient(90deg, #2ecc71, #27ae60)', dot: '#2ecc71' },
-    'CASH_SAVINGS': { bg: 'linear-gradient(90deg, #9b59b6, #8e44ad)', dot: '#9b59b6' }
+    'CASH_SAVINGS': { bg: 'linear-gradient(90deg, #9b59b6, #8e44ad)', dot: '#9b59b6' },
+    'PROVIDENT_FUND': { bg: 'linear-gradient(90deg, #e67e22, #f39c12)', dot: '#e67e22' }
   };
 
   allocations.forEach(alloc => {
@@ -975,6 +997,71 @@ function renderCategorySummaryBar() {
         <div class="pill-footer">Real-Time Valuation</div>
       </div>
     `;
+  } else if (currentFilterType === 'PROVIDENT_FUND') {
+    const pfItems = allItems.filter(i => i.asset.assetType === 'PROVIDENT_FUND');
+    if (pfItems.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    let totalPrincipal = 0;
+    let totalCurrentVal = 0;
+    let totalMonthlyInflow = 0;
+    let totalWeightedRate = 0;
+    let activeCount = 0;
+    let dormantCount = 0;
+
+    pfItems.forEach(i => {
+      const a = i.asset;
+      const contributed = i.metrics.investedAmount || a.investedAmount || 0;
+      const isActive = (a.isActiveContribution !== false && a.pfStatus !== 'DORMANT');
+      totalPrincipal += contributed;
+      totalCurrentVal += i.metrics.currentValue;
+      if (isActive && a.monthlyContribution) {
+        totalMonthlyInflow += a.monthlyContribution;
+        activeCount++;
+      } else {
+        dormantCount++;
+      }
+      totalWeightedRate += (a.pfInterestRate || 8.25) * (i.metrics.currentValue || 1);
+    });
+
+    const avgRate = totalCurrentVal > 0 ? (totalWeightedRate / totalCurrentVal) : 8.25;
+    const interestAccrued = totalCurrentVal - totalPrincipal;
+    const interestRoi = totalPrincipal > 0 ? (interestAccrued / totalPrincipal) * 100 : 0;
+
+    bar.style.display = 'grid';
+    bar.innerHTML = `
+      <div class="summary-pill-card pf-card">
+        <div class="pill-header">
+          <span class="pill-title">🛡️ Total PF &amp; Retirement Corpus</span>
+          <span class="pill-badge">${pfItems.length} Accounts</span>
+        </div>
+        <div class="pill-main-stat" style="color: #f39c12;">${formatCurrency(totalCurrentVal)}</div>
+        <div class="pill-sub-stat">Accumulated Wealth: ${formatCurrency(totalCurrentVal)}</div>
+        <div class="pill-footer">Contributed: ${formatCurrency(totalPrincipal)} • <strong style="color: var(--success);">+${formatCurrency(interestAccrued)} (+${interestRoi.toFixed(1)}% Gain)</strong></div>
+      </div>
+
+      <div class="summary-pill-card pf-card">
+        <div class="pill-header">
+          <span class="pill-title">💵 Monthly Salary Inflow</span>
+          <span class="pill-badge">${activeCount} Active, ${dormantCount} Dormant</span>
+        </div>
+        <div class="pill-main-stat" style="color: #fff;">${formatCurrency(totalMonthlyInflow)}/mo</div>
+        <div class="pill-sub-stat" style="color: #86efac;">Annual Inflow: ${formatCurrency(totalMonthlyInflow * 12)}/yr</div>
+        <div class="pill-footer">Employer + Employee Monthly Deductions</div>
+      </div>
+
+      <div class="summary-pill-card pf-card">
+        <div class="pill-header">
+          <span class="pill-title">🏛️ Govt Interest Yield</span>
+          <span class="pill-badge">EPFO Sovereign Backed</span>
+        </div>
+        <div class="pill-main-stat" style="color: #fdba74;">${avgRate.toFixed(2)}% p.a.</div>
+        <div class="pill-sub-stat">Compounding Retirement Safety</div>
+        <div class="pill-footer">Guaranteed Growth (Even if No Job)</div>
+      </div>
+    `;
   } else {
     bar.style.display = 'none';
     bar.innerHTML = '';
@@ -1161,6 +1248,16 @@ function editAsset(id) {
     document.getElementById('cash-deposit').value = a.investedAmount || '';
     document.getElementById('cash-rate').value = a.interestRatePct || '';
     document.getElementById('cash-maturity').value = a.maturityDate || '';
+  } else if (a.assetType === 'PROVIDENT_FUND') {
+    document.getElementById('pf-scheme-type').value = a.pfSchemeType || 'EPF';
+    document.getElementById('pf-uan').value = a.uanOrAccountId || '';
+    document.getElementById('pf-balance').value = a.investedAmount || '';
+    const isActive = (a.isActiveContribution !== false && a.pfStatus !== 'DORMANT');
+    const statusVal = isActive ? 'ACTIVE' : 'DORMANT';
+    document.getElementById('pf-status').value = statusVal;
+    togglePfStatusFields(statusVal);
+    document.getElementById('pf-monthly-contrib').value = a.monthlyContribution || '';
+    document.getElementById('pf-rate').value = a.pfInterestRate || (a.pfSchemeType === 'PPF' ? 7.10 : 8.25);
   }
 
   const formSection = document.querySelector('.form-section');
@@ -1171,6 +1268,30 @@ function editAsset(id) {
   }
   document.getElementById('asset-name').focus();
   showToast(`Editing "${a.name}" - update details in the form on the left.`, 'info');
+}
+
+function resetForm() {
+  editingId = null;
+  document.getElementById('form-title').innerText = 'Add Asset';
+  document.getElementById('submit-btn').innerText = '✨ Save Asset to Portfolio';
+  document.getElementById('cancel-btn').style.display = 'none';
+  document.getElementById('asset-form')?.reset();
+
+  document.getElementById('asset-type-select').value = 'PRECIOUS_METALS';
+  toggleFormFieldsets('PRECIOUS_METALS');
+
+  const dateInput = document.getElementById('asset-date');
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+
+  const pfRateInput = document.getElementById('pf-rate');
+  if (pfRateInput) pfRateInput.value = '8.25';
+  const pfStatus = document.getElementById('pf-status');
+  if (pfStatus) pfStatus.value = 'ACTIVE';
+  togglePfStatusFields('ACTIVE');
+
+  updateDateRateSuggestion(false);
 }
 
 // -------------------------------------------------------------
@@ -1640,6 +1761,15 @@ document.addEventListener('DOMContentLoaded', () => {
       payload.investedAmount = parseFloat(document.getElementById('cash-deposit').value) || 0;
       payload.interestRatePct = parseFloat(document.getElementById('cash-rate').value) || 0;
       payload.maturityDate = document.getElementById('cash-maturity').value;
+    } else if (assetType === 'PROVIDENT_FUND') {
+      payload.pfSchemeType = document.getElementById('pf-scheme-type').value;
+      payload.uanOrAccountId = document.getElementById('pf-uan').value.trim();
+      const initialBalance = parseFloat(document.getElementById('pf-balance').value) || 0;
+      const pfStatus = document.getElementById('pf-status').value;
+      payload.isActiveContribution = (pfStatus === 'ACTIVE');
+      payload.monthlyContribution = payload.isActiveContribution ? (parseFloat(document.getElementById('pf-monthly-contrib').value) || 0) : 0;
+      payload.pfInterestRate = parseFloat(document.getElementById('pf-rate').value) || (payload.pfSchemeType === 'PPF' ? 7.10 : 8.25);
+      payload.investedAmount = initialBalance;
     }
 
     saveAsset(payload);

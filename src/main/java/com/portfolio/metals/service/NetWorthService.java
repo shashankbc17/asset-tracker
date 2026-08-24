@@ -142,6 +142,32 @@ public class NetWorthService {
                 keyMetricDisplay = (rate > 0) ? String.format("%.2f%% p.a. Interest", rate) : "Liquid Balance";
                 break;
             }
+
+            case PROVIDENT_FUND: {
+                double initialBalance = asset.getInvestedAmount();
+                boolean isActive = asset.getIsActiveContribution() != null ? asset.getIsActiveContribution() : true;
+                double monthlyContrib = (isActive && asset.getMonthlyContribution() != null) ? asset.getMonthlyContribution() : 0.0;
+                double pfRate = (asset.getPfInterestRate() != null && asset.getPfInterestRate() > 0) ? asset.getPfInterestRate() : 8.25;
+
+                double elapsedMonths = yearsHeld * 12.0;
+                double totalContributions = initialBalance + (monthlyContrib * elapsedMonths);
+                invested = totalContributions;
+
+                double interestOnBase = (yearsHeld > 0) ? initialBalance * (Math.pow(1.0 + (pfRate / 100.0), yearsHeld) - 1.0) : 0.0;
+                double interestOnContrib = (monthlyContrib > 0 && yearsHeld > 0) ? (monthlyContrib * elapsedMonths) * (pfRate / 200.0) * yearsHeld : 0.0;
+
+                grossValue = totalContributions + interestOnBase + interestOnContrib;
+                currentValue = grossValue;
+
+                imagePath = "/images/pf.jpg";
+                String scheme = (asset.getPfSchemeType() != null && !asset.getPfSchemeType().isEmpty()) ? asset.getPfSchemeType() : "EPF";
+                String statusStr = isActive ? "Active (Deductions)" : "Dormant (Compounding)";
+                categoryBadge = scheme + " • " + statusStr;
+                keyMetricDisplay = isActive 
+                    ? String.format("₹%,.0f/mo • %.2f%% Govt Rate", monthlyContrib, pfRate)
+                    : String.format("Dormant (No Job) • %.2f%% Govt Rate", pfRate);
+                break;
+            }
         }
 
         double profitLoss = currentValue - invested;

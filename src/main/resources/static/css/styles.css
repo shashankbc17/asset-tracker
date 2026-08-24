@@ -819,6 +819,11 @@ body {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.09), rgba(24, 34, 52, 0.7));
 }
 
+.summary-pill-card.pf-card {
+  border-left: 4px solid #e67e22;
+  background: linear-gradient(135deg, rgba(230, 126, 34, 0.10), rgba(24, 34, 52, 0.7));
+}
+
 .pill-header {
   display: flex;
   justify-content: space-between;

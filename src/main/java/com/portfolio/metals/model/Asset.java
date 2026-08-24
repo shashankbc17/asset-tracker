@@ -64,6 +64,13 @@ public class Asset {
     private Double interestRatePct; // Annual interest rate (e.g. 7.1%)
     private LocalDate maturityDate;
 
+    // --- Provident Fund (EPF / PPF / VPF) Specific Attributes ---
+    private String pfSchemeType; // EPF, PPF, VPF
+    private String uanOrAccountId; // UAN number or Account ID
+    private Boolean isActiveContribution; // true = Active job with monthly deduction, false = Dormant/no job
+    private Double monthlyContribution; // Monthly employee + employer deduction (₹)
+    private Double pfInterestRate; // Govt annual interest rate % (e.g. 8.25%)
+
     public Asset() {
     }
 
@@ -258,5 +265,45 @@ public class Asset {
 
     public void setMaturityDate(LocalDate maturityDate) {
         this.maturityDate = maturityDate;
+    }
+
+    public String getPfSchemeType() {
+        return pfSchemeType;
+    }
+
+    public void setPfSchemeType(String pfSchemeType) {
+        this.pfSchemeType = pfSchemeType;
+    }
+
+    public String getUanOrAccountId() {
+        return uanOrAccountId;
+    }
+
+    public void setUanOrAccountId(String uanOrAccountId) {
+        this.uanOrAccountId = uanOrAccountId;
+    }
+
+    public Boolean getIsActiveContribution() {
+        return isActiveContribution;
+    }
+
+    public void setIsActiveContribution(Boolean isActiveContribution) {
+        this.isActiveContribution = isActiveContribution;
+    }
+
+    public Double getMonthlyContribution() {
+        return monthlyContribution;
+    }
+
+    public void setMonthlyContribution(Double monthlyContribution) {
+        this.monthlyContribution = monthlyContribution;
+    }
+
+    public Double getPfInterestRate() {
+        return pfInterestRate;
+    }
+
+    public void setPfInterestRate(Double pfInterestRate) {
+        this.pfInterestRate = pfInterestRate;
     }
 }

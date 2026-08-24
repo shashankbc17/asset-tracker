@@ -19,11 +19,13 @@
       const equityEl = document.getElementById('fields-equity');
       const realEstateEl = document.getElementById('fields-real-estate') || document.getElementById('fields-realestate');
       const cashEl = document.getElementById('fields-cash');
+      const pfEl = document.getElementById('fields-pf');
 
       if (metalsEl) metalsEl.style.display = (type === 'PRECIOUS_METALS') ? 'block' : 'none';
       if (equityEl) equityEl.style.display = (type === 'EQUITY') ? 'block' : 'none';
       if (realEstateEl) realEstateEl.style.display = (type === 'REAL_ESTATE') ? 'block' : 'none';
       if (cashEl) cashEl.style.display = (type === 'CASH_SAVINGS') ? 'block' : 'none';
+      if (pfEl) pfEl.style.display = (type === 'PROVIDENT_FUND') ? 'block' : 'none';
 
       if (typeof updateDateRateSuggestion === 'function') {
         if (type === 'PRECIOUS_METALS') {
@@ -33,6 +35,24 @@
           if (hintEl) hintEl.style.display = 'none';
           const dateIndicatorEl = document.getElementById('date-rate-indicator');
           if (dateIndicatorEl) dateIndicatorEl.style.display = 'none';
+        }
+      }
+    }
+
+    function togglePfStatusFields(status) {
+      const monthlyGroup = document.getElementById('pf-monthly-group');
+      if (monthlyGroup) {
+        monthlyGroup.style.display = (status === 'DORMANT') ? 'none' : 'block';
+      }
+    }
+
+    function handlePfSchemeChange(scheme) {
+      const rateInput = document.getElementById('pf-rate');
+      if (rateInput) {
+        if (scheme === 'PPF') {
+          rateInput.value = '7.10';
+        } else {
+          rateInput.value = '8.25';
         }
       }
     }
@@ -158,16 +178,17 @@
               <option value="EQUITY">📈 Equities &amp; Mutual Funds</option>
               <option value="REAL_ESTATE">🏡 Real Estate (Land / House)</option>
               <option value="CASH_SAVINGS">💰 Cash &amp; Fixed Deposits</option>
+              <option value="PROVIDENT_FUND">🛡️ Provident Fund &amp; PPF (EPF / PPF / VPF)</option>
             </select>
           </div>
 
           <div class="form-group">
             <label for="asset-name">Asset Name / Title</label>
-            <input type="text" id="asset-name" placeholder="e.g. 24K Gold Bar, TCS, 3BHK Flat, HDFC FD" required />
+            <input type="text" id="asset-name" placeholder="e.g. 24K Gold Bar, TCS, 3BHK Flat, EPFO Account" required />
           </div>
 
           <div class="form-group">
-            <label for="asset-date">Purchase / Deposit Date</label>
+            <label for="asset-date">Purchase / Deposit / Starting Date</label>
             <input type="date" id="asset-date" required />
             <div id="date-rate-indicator" style="display: none; font-size: 0.75rem; color: var(--gold-light); margin-top: 4px;"></div>
           </div>
@@ -270,6 +291,41 @@
             </div>
           </div>
 
+          <!-- Dynamic Fieldset: Provident Fund & PPF -->
+          <div id="fields-pf" class="dynamic-fieldset" style="display: none;">
+            <div class="form-group">
+              <label for="pf-scheme-type">Scheme Type</label>
+              <select id="pf-scheme-type" onchange="handlePfSchemeChange(this.value)">
+                <option value="EPF">EPF (Employee Provident Fund - Salaried)</option>
+                <option value="PPF">PPF (Public Provident Fund)</option>
+                <option value="VPF">VPF (Voluntary Provident Fund)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="pf-uan">UAN / Account ID (Optional)</label>
+              <input type="text" id="pf-uan" placeholder="e.g. 100987654321 / Passbook ID" />
+            </div>
+            <div class="form-group">
+              <label for="pf-balance">Current / Starting Balance (₹)</label>
+              <input type="number" id="pf-balance" step="100" placeholder="e.g. 450000" />
+            </div>
+            <div class="form-group">
+              <label for="pf-status">Employment / Contribution Status</label>
+              <select id="pf-status" onchange="togglePfStatusFields(this.value)">
+                <option value="ACTIVE">🟢 Active (Employed - Monthly PF Deductions Ongoing)</option>
+                <option value="DORMANT">⚪ Dormant / Inactive (No Current Job - Compound Interest Only)</option>
+              </select>
+            </div>
+            <div class="form-group" id="pf-monthly-group">
+              <label for="pf-monthly-contrib">Monthly Contribution (₹/month) <span class="text-muted" style="font-size: 0.72rem;">(Employee + Employer Share)</span></label>
+              <input type="number" id="pf-monthly-contrib" step="100" placeholder="e.g. 15000" />
+            </div>
+            <div class="form-group">
+              <label for="pf-rate">Govt Annual Interest Rate (% p.a.)</label>
+              <input type="number" id="pf-rate" step="0.05" value="8.25" placeholder="e.g. 8.25" />
+            </div>
+          </div>
+
           <div class="form-actions">
             <button type="submit" class="btn-submit" id="submit-btn">
               ✨ Save Asset to Portfolio
@@ -290,6 +346,7 @@
             <button class="filter-chip" data-filter-type="EQUITY">📈 Equities</button>
             <button class="filter-chip" data-filter-type="REAL_ESTATE">🏡 Real Estate</button>
             <button class="filter-chip" data-filter-type="CASH_SAVINGS">💰 Cash &amp; FDs</button>
+            <button class="filter-chip" data-filter-type="PROVIDENT_FUND">🛡️ PF &amp; Pension</button>
           </div>
 
           <div class="sort-group">
@@ -387,6 +444,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=2.9.2"></script>
+  <script src="js/app.js?v=3.0.0"></script>
 </body>
 </html>
