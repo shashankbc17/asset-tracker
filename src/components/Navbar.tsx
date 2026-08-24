@@ -89,21 +89,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* 2. Middle: Live Rates Ticker (Desktop / Tablet Large only) */}
           <div 
             onClick={onOpenRatesModal}
-            className="hidden lg:flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 hover:border-amber-500/40 transition-all cursor-pointer group text-xs"
+            className="hidden xl:flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 hover:border-amber-500/40 transition-all cursor-pointer group text-xs whitespace-nowrap shrink-0"
             title="Click to edit or sync spot market rates"
           >
-            <div className="flex items-center gap-1.5 text-amber-400">
+            <div className="flex items-center gap-1.5 text-amber-400 font-semibold shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="font-semibold">Bangalore:</span>
+              <span>BLR Rates:</span>
             </div>
-            <div className="flex items-center gap-2.5 font-mono text-slate-300">
-              <span>24K: <strong className="text-amber-300 font-semibold">₹{formatNumber(rates.gold24k || rates.gold, 0)}/g</strong></span>
-              <span className="text-slate-600">•</span>
-              <span>22K: <strong className="text-amber-200 font-semibold">₹{formatNumber(rates.gold22k || rates.gold * 0.916, 0)}/g</strong></span>
-              <span className="text-slate-600">•</span>
-              <span>Silver: <strong className="text-slate-200 font-semibold">₹{formatNumber(rates.silver, 0)}/g</strong></span>
+            <div className="flex items-center gap-2.5 font-mono text-slate-300 whitespace-nowrap">
+              <span className="inline-flex items-center gap-1">24K: <strong className="text-amber-300 font-bold">₹{formatNumber(rates.gold24k || rates.gold, 0)}/g</strong></span>
+              <span className="text-slate-600 font-sans">•</span>
+              <span className="inline-flex items-center gap-1">22K: <strong className="text-amber-200 font-bold">₹{formatNumber(rates.gold22k || rates.gold * 0.916, 0)}/g</strong></span>
+              <span className="text-slate-600 font-sans">•</span>
+              <span className="inline-flex items-center gap-1">Ag: <strong className="text-slate-200 font-bold">₹{formatNumber(rates.silver, 0)}/g</strong></span>
             </div>
-            <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition-colors" />
+            <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition-colors shrink-0" />
           </div>
 
           {/* 3. Right: Action Buttons & Profile Pill */}
