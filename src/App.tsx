@@ -18,6 +18,7 @@ import {
 } from './services/api';
 import { fetchCurrentRates, loadHistoricalRates } from './services/ratesService';
 import { AuthService, UserProfile } from './services/auth';
+import { subscribeToUserPortfolio, savePortfolioToFirestore } from './services/firestoreService';
 import { calculateAssetMetrics, computePortfolioSummary } from './utils/calculations';
 import { Loader2 } from 'lucide-react';
 
@@ -64,19 +65,39 @@ export const App: React.FC = () => {
     setSummary(newSummary);
   }, []);
 
-  // Listen to Auth State
+  // Listen to Auth State & Cloud Firestore Real-Time Sync
   useEffect(() => {
-    const unsubscribe = AuthService.onAuthStateChange((currentUser) => {
+    let unsubscribeFirestore: (() => void) | null = null;
+
+    const unsubscribeAuth = AuthService.onAuthStateChange((currentUser) => {
       setUser(currentUser);
-      const userId = currentUser ? currentUser.uid : 'default_user';
-      getAssets(userId, rates).then((loaded) => {
-        refreshPortfolio(loaded, rates, userId);
-      });
+
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
+        unsubscribeFirestore = null;
+      }
+
+      if (currentUser) {
+        // Authenticated user: subscribe to their real-time Cloud Firestore vault
+        unsubscribeFirestore = subscribeToUserPortfolio(currentUser.uid, (cloudAssets, cloudRates) => {
+          const effectiveRates = cloudRates || rates;
+          refreshPortfolio(cloudAssets, effectiveRates, currentUser.uid);
+        });
+      } else {
+        // Guest user: load local cache or sample portfolio
+        getAssets('default_user', rates).then((loaded) => {
+          refreshPortfolio(loaded, rates, 'default_user');
+        });
+      }
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeFirestore) unsubscribeFirestore();
+    };
   }, [refreshPortfolio, rates]);
 
-  // Initial load
+  // Initial load: fetch rates & historical lookup
   useEffect(() => {
     async function init() {
       setIsLoading(true);
@@ -122,6 +143,11 @@ export const App: React.FC = () => {
     }
     refreshPortfolio(updatedList, rates, userId);
     setEditingAsset(null);
+
+    // Sync to Cloud Firestore if logged in
+    if (user) {
+      savePortfolioToFirestore(user.uid, updatedList, rates);
+    }
   };
 
   const handleDeleteAsset = async (id: number) => {
@@ -133,6 +159,11 @@ export const App: React.FC = () => {
       if (selectedAssetForDetail?.id === id) {
         setIsDetailDrawerOpen(false);
         setSelectedAssetForDetail(null);
+      }
+
+      // Sync deletion to Cloud Firestore
+      if (user) {
+        savePortfolioToFirestore(user.uid, remaining, rates);
       }
     }
   };
@@ -157,6 +188,9 @@ export const App: React.FC = () => {
     const updated = await updateManualRates(newRates);
     setRates(updated);
     refreshPortfolio(assets, updated, user ? user.uid : 'default_user');
+    if (user) {
+      savePortfolioToFirestore(user.uid, assets, updated);
+    }
   };
 
   const handleSyncRates = async () => {
@@ -165,6 +199,9 @@ export const App: React.FC = () => {
       const updated = await syncLiveMarketRates();
       setRates(updated);
       refreshPortfolio(assets, updated, user ? user.uid : 'default_user');
+      if (user) {
+        savePortfolioToFirestore(user.uid, assets, updated);
+      }
     } catch (e) {
       console.warn('Sync failed:', e);
     } finally {
@@ -175,6 +212,9 @@ export const App: React.FC = () => {
   const handleImportSuccess = (importedAssets: Asset[]) => {
     const combined = [...importedAssets, ...assets];
     refreshPortfolio(combined, rates, user ? user.uid : 'default_user');
+    if (user) {
+      savePortfolioToFirestore(user.uid, combined, rates);
+    }
   };
 
   return (
