@@ -104,6 +104,21 @@ body {
   border: 1px solid rgba(212, 175, 55, 0.3);
 }
 
+.version-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(212, 175, 55, 0.1));
+  color: var(--gold-light);
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .server-badge {
   font-size: 0.75rem;
   font-weight: 600;
