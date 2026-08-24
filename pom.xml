@@ -13,7 +13,7 @@
 
     <groupId>com.portfolio</groupId>
     <artifactId>precious-metals-portfolio</artifactId>
-    <version>1.0.0</version>
+    <version>4.0.1</version>
     <name>precious-metals-portfolio</name>
     <description>Precious Metals Portfolio Manager in Spring Boot and Core Java</description>
 
