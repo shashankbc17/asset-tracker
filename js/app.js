@@ -407,18 +407,22 @@ async function updateMarketRates(gold, silver) {
   loadPortfolio();
 }
 
-async function syncLiveRates() {
-  showToast('⚡ Syncing live Karnataka (Bangalore) 22K Gold & Silver rates...', 'info');
+async function syncLiveRates(isSilent = false) {
+  if (!isSilent) {
+    showToast('⚡ Syncing live Karnataka (Bangalore) 22K Gold & Silver rates...', 'info');
+  }
 
   // Strategy 1: Same-origin auto-synced rates.json (0ms latency, zero CORS error)
   try {
     const res = await fetch(`rates.json?t=${Date.now()}`);
     if (res.ok) {
       const data = await res.json();
-      const g22 = data.gold_22kt || 14950.0;
-      const sil = data.silver || 257.0;
+      const g22 = parseFloat(data.gold_22kt || data.gold22k || data.goldRate) || 15030.0;
+      const sil = parseFloat(data.silver || data.silverRate) || 257.0;
       saveLocalRates({ id: 1, goldRate: g22, silverRate: sil });
-      showToast(`✅ Synced Live Bangalore Rates: 22K Gold ₹${g22}/g, Silver ₹${sil}/g`, 'success');
+      if (!isSilent) {
+        showToast(`✅ Synced Live Bangalore Rates: 22K Gold ₹${g22}/g, Silver ₹${sil}/g`, 'success');
+      }
       loadPortfolio();
       return;
     }
@@ -426,15 +430,17 @@ async function syncLiveRates() {
     console.log('rates.json check skipped, trying direct API...', e);
   }
 
-  // Strategy 2: Direct API fetch
+  // Strategy 2: Direct API fetch (if CORS permits or proxy available)
   try {
     const res = await fetch(LALITHAA_KARNATAKA_API);
     if (res.ok) {
       const json = await res.json();
-      const g22 = json?.data?.prices?.gold_22kt?.price || 14950.0;
-      const sil = json?.data?.prices?.silver?.price || 257.0;
+      const g22 = parseFloat(json?.data?.prices?.gold_22kt?.price) || 15030.0;
+      const sil = parseFloat(json?.data?.prices?.silver?.price) || 257.0;
       saveLocalRates({ id: 1, goldRate: g22, silverRate: sil });
-      showToast(`✅ Synced Official Karnataka Bullion: 22K Gold ₹${g22}/g, Silver ₹${sil}/g`, 'success');
+      if (!isSilent) {
+        showToast(`✅ Synced Official Karnataka Bullion: 22K Gold ₹${g22}/g, Silver ₹${sil}/g`, 'success');
+      }
       loadPortfolio();
       return;
     }
@@ -442,8 +448,13 @@ async function syncLiveRates() {
     console.warn('Direct live API failed, keeping benchmark rates', e);
   }
 
-  saveLocalRates({ id: 1, goldRate: 14950.0, silverRate: 257.0 });
-  showToast('✅ Synced Bangalore Spot: 22K Gold ₹14,950/g, Silver ₹257/g', 'success');
+  const current = getLocalRates();
+  const fallbackGold = current.goldRate || 15030.0;
+  const fallbackSilver = current.silverRate || 257.0;
+  saveLocalRates({ id: 1, goldRate: fallbackGold, silverRate: fallbackSilver });
+  if (!isSilent) {
+    showToast(`✅ Synced Bangalore Spot: 22K Gold ₹${fallbackGold}/g, Silver ₹${fallbackSilver}/g`, 'success');
+  }
   loadPortfolio();
 }
 
@@ -1533,11 +1544,21 @@ function updateDateRateSuggestion(forceFill = false) {
     return;
   }
 
-  const result = getHistoricalBullionRate(dateVal, metalType);
+  const todayStr = new Date().toISOString().split('T')[0];
+  let result = null;
+
+  if (dateVal >= todayStr) {
+    const rates = getLocalRates();
+    const liveRate = (metalType === 'SILVER') ? rates.silverRate : rates.goldRate;
+    result = { rate: liveRate, exact: true, matchedDate: dateVal, isLive: true };
+  } else {
+    result = getHistoricalBullionRate(dateVal, metalType);
+  }
+
   if (result && result.rate) {
     const metalLabel = metalType === 'GOLD' ? '22K Gold' : 'Silver';
-    const rateFormatted = `₹${result.rate.toLocaleString('en-IN')}/g`;
-    const hintMsg = `⚡ Bangalore ${metalLabel} Benchmark (${dateVal}): ${rateFormatted}`;
+    const rateFormatted = `₹${Number(result.rate).toLocaleString('en-IN')}/g`;
+    const hintMsg = `⚡ Bangalore ${metalLabel} Rate (${dateVal}): ${rateFormatted}`;
 
     if (hintEl) {
       hintEl.innerText = hintMsg;
@@ -1555,24 +1576,6 @@ function updateDateRateSuggestion(forceFill = false) {
       }
     }
   }
-}
-
-function resetForm() {
-  document.getElementById('asset-form').reset();
-  editingId = null;
-  document.getElementById('form-title').innerText = 'Add Asset';
-  document.getElementById('submit-btn').innerText = '✨ Save Asset to Portfolio';
-  document.getElementById('cancel-btn').style.display = 'none';
-  document.getElementById('asset-date').value = new Date().toISOString().split('T')[0];
-  document.getElementById('asset-type-select').value = 'PRECIOUS_METALS';
-
-  const hintEl = document.getElementById('rate-suggestion-hint');
-  if (hintEl) { hintEl.innerText = ''; hintEl.style.display = 'none'; }
-  const dateIndicatorEl = document.getElementById('date-rate-indicator');
-  if (dateIndicatorEl) { dateIndicatorEl.innerText = ''; dateIndicatorEl.style.display = 'none'; }
-
-  toggleFormFieldsets('PRECIOUS_METALS');
-  updateDateRateSuggestion(true);
 }
 
 function toggleFormFieldsets(type) {
@@ -1605,7 +1608,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Clear any unauthenticated stale cache completely
   localStorage.removeItem('wealth_assets');
 
-  // Load historical bullion dataset
+  // 1. Auto-sync latest live spot bullion rates from rates.json
+  syncLiveRates(true);
+
+  // 2. Load historical bullion dataset & suggest initial rates
   loadHistoricalRates().then(() => {
     updateDateRateSuggestion(false);
   });
