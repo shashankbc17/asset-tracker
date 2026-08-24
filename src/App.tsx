@@ -77,16 +77,20 @@ export const App: React.FC = () => {
         unsubscribeFirestore = null;
       }
 
+      const uid = currentUser ? currentUser.uid : 'default_user';
+
+      // 1. Immediately hydrate from local cache / database so UI renders in 0ms
+      getAssets(uid, rates).then((loaded) => {
+        refreshPortfolio(loaded, rates, uid);
+      });
+
+      // 2. If authenticated, connect real-time Cloud Firestore sync in background
       if (currentUser) {
-        // Authenticated user: subscribe to their real-time Cloud Firestore vault
         unsubscribeFirestore = subscribeToUserPortfolio(currentUser.uid, (cloudAssets, cloudRates) => {
-          const effectiveRates = cloudRates || rates;
-          refreshPortfolio(cloudAssets, effectiveRates, currentUser.uid);
-        });
-      } else {
-        // Guest user: load local cache or sample portfolio
-        getAssets('default_user', rates).then((loaded) => {
-          refreshPortfolio(loaded, rates, 'default_user');
+          if (cloudAssets && Array.isArray(cloudAssets) && cloudAssets.length > 0) {
+            const effectiveRates = cloudRates || rates;
+            refreshPortfolio(cloudAssets, effectiveRates, currentUser.uid);
+          }
         });
       }
     });

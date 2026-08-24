@@ -36,26 +36,35 @@ export function subscribeToUserPortfolio(
     firestoreUnsubscribe = onSnapshot(
       docRef,
       (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          const assets = (data.assets && Array.isArray(data.assets)) ? data.assets : [];
-          localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(assets));
-          if (data.rates) {
-            localStorage.setItem(`metals_rates_${uid}`, JSON.stringify(data.rates));
+        try {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            const assets = (data.assets && Array.isArray(data.assets)) ? data.assets : [];
+            localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(assets));
+            if (data.rates) {
+              localStorage.setItem(`metals_rates_${uid}`, JSON.stringify(data.rates));
+            }
+            onUpdate(assets, data.rates);
+          } else {
+            // Document doesn't exist yet on cloud
+            const cachedLocal = localStorage.getItem(`wealth_assets_${uid}`);
+            if (cachedLocal) {
+              try {
+                const initialAssets = JSON.parse(cachedLocal);
+                setDoc(docRef, {
+                  assets: initialAssets,
+                  updatedAt: new Date().toISOString(),
+                }).catch(() => {});
+              } catch {}
+            }
           }
-          onUpdate(assets, data.rates);
-        } else {
-          // Initialize user's private cloud document if empty
-          const cachedLocal = localStorage.getItem(`wealth_assets_${uid}`);
-          const initialAssets = cachedLocal ? JSON.parse(cachedLocal) : [];
-          setDoc(docRef, {
-            assets: initialAssets,
-            updatedAt: new Date().toISOString(),
-          }).catch(console.warn);
+        } catch (innerErr) {
+          console.warn('Snapshot parse error:', innerErr);
         }
       },
       (err) => {
-        console.warn('Firestore subscription error:', err);
+        // Firestore permission/network error: fallback smoothly to local cache
+        console.warn('Firestore subscription fallback (using local cache):', err.message);
       }
     );
   } catch (err) {
@@ -82,6 +91,6 @@ export async function savePortfolioToFirestore(uid: string, assets: Asset[], rat
       updatedAt: new Date().toISOString(),
     }, { merge: true });
   } catch (err) {
-    console.warn('Failed saving to Firestore:', err);
+    console.warn('Failed saving to Firestore (data is safe locally):', err);
   }
 }
