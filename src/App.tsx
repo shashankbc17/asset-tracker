@@ -134,6 +134,9 @@ export const App: React.FC = () => {
 
   const handleLogout = async () => {
     await AuthService.signOut();
+    setUser(null);
+    const guestAssets = await getAssets('default_user', rates);
+    refreshPortfolio(guestAssets, rates, 'default_user');
   };
 
   // Asset CRUD Handlers

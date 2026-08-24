@@ -24,10 +24,10 @@ export async function getAssets(userId = 'default_user', rates?: MetalRates): Pr
 
   // Fallback to localStorage (check both wealth_assets_${userId} and precious_metals_assets_v3_${userId})
   const local = localStorage.getItem(`wealth_assets_${userId}`) || localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userId}`);
-  if (local) {
+  if (local !== null) {
     try {
       const parsed: Asset[] = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         const currentRates = rates || await fetchCurrentRates();
         return parsed.map((a) => ({
           ...a,
