@@ -1,7 +1,8 @@
-import React from 'react';
-import { RefreshCw, Plus, PieChart, Download, Wallet, ArrowUpRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { RefreshCw, Plus, PieChart, Download, Wallet, ArrowUpRight, LogOut } from 'lucide-react';
 import { MetalRates } from '../types/portfolio';
 import { formatNumber } from '../utils/calculations';
+import { UserProfile } from '../services/auth';
 
 interface NavbarProps {
   rates: MetalRates;
@@ -11,6 +12,9 @@ interface NavbarProps {
   onOpenCsvModal: () => void;
   onSyncRates: () => void;
   isSyncingRates: boolean;
+  user: UserProfile | null;
+  onLogin: () => void;
+  onLogout: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -21,7 +25,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCsvModal,
   onSyncRates,
   isSyncingRates,
+  user,
+  onLogin,
+  onLogout,
 }) => {
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white shadow-md">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -67,7 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 transition-colors" />
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons & Google Sign-In */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={onSyncRates}
@@ -96,6 +105,65 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-400" />
               <span className="hidden md:inline">Backup</span>
             </button>
+
+            {/* Google Login / User Profile Badge */}
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all text-xs"
+                >
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName}
+                    className="w-6 h-6 rounded-full border border-amber-400/50"
+                  />
+                  <span className="font-semibold text-slate-200 hidden md:inline truncate max-w-[100px]">
+                    {user.displayName}
+                  </span>
+                </button>
+
+                {isUserMenuOpen && (
+                  <>
+                    <div
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="fixed inset-0 z-20"
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-2xl shadow-xl z-30 py-2 text-xs">
+                      <div className="px-3.5 py-1.5 border-b border-slate-700/80">
+                        <div className="font-bold text-white truncate">{user.displayName}</div>
+                        <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          onLogout();
+                        }}
+                        className="w-full text-left px-3.5 py-2 text-rose-400 hover:bg-slate-700/80 flex items-center gap-2 font-medium"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={onLogin}
+                className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-all"
+                title="Sign in with Google to sync across devices"
+              >
+                {/* Google Logo SVG */}
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
+                  <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+                  <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3 0-.8.1-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.2s.7 5.5 1.9 7.9l3.7-2.9z"/>
+                  <path fill="#34A853" d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16.5C3.7 20.2 7.5 23.5 12 23.5z"/>
+                </svg>
+                <span className="hidden sm:inline">Google Sign In</span>
+              </button>
+            )}
 
             <button
               onClick={onOpenAddModal}

@@ -17,10 +17,12 @@ import {
   updateManualRates 
 } from './services/api';
 import { fetchCurrentRates, loadHistoricalRates } from './services/ratesService';
+import { AuthService, UserProfile } from './services/auth';
 import { calculateAssetMetrics, computePortfolioSummary } from './utils/calculations';
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [rates, setRates] = useState<MetalRates>({
     gold: 16408,
     gold24k: 16408,
@@ -52,15 +54,27 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Recalculate all assets and portfolio summary
-  const refreshPortfolio = useCallback((currentAssets: Asset[], currentRates: MetalRates) => {
+  const refreshPortfolio = useCallback((currentAssets: Asset[], currentRates: MetalRates, userId = 'default_user') => {
     const updatedAssets = currentAssets.map((asset) => ({
       ...asset,
       metrics: calculateAssetMetrics(asset, currentRates),
     }));
     setAssets(updatedAssets);
-    const newSummary = computePortfolioSummary(updatedAssets, currentRates);
+    const newSummary = computePortfolioSummary(updatedAssets, currentRates, userId);
     setSummary(newSummary);
   }, []);
+
+  // Listen to Auth State
+  useEffect(() => {
+    const unsubscribe = AuthService.onAuthStateChange((currentUser) => {
+      setUser(currentUser);
+      const userId = currentUser ? currentUser.uid : 'default_user';
+      getAssets(userId, rates).then((loaded) => {
+        refreshPortfolio(loaded, rates, userId);
+      });
+    });
+    return () => unsubscribe();
+  }, [refreshPortfolio, rates]);
 
   // Initial load
   useEffect(() => {
@@ -71,8 +85,9 @@ export const App: React.FC = () => {
         const initialRates = await fetchCurrentRates();
         setRates(initialRates);
 
-        const loadedAssets = await getAssets('default_user', initialRates);
-        refreshPortfolio(loadedAssets, initialRates);
+        const currentUserId = user ? user.uid : 'default_user';
+        const loadedAssets = await getAssets(currentUserId, initialRates);
+        refreshPortfolio(loadedAssets, initialRates, currentUserId);
       } catch (err) {
         console.error('Initialization error:', err);
       } finally {
@@ -82,24 +97,39 @@ export const App: React.FC = () => {
     init();
   }, [refreshPortfolio]);
 
+  // Google Login / Logout Handlers
+  const handleGoogleLogin = async () => {
+    try {
+      await AuthService.signInWithGoogle();
+    } catch (err) {
+      alert('Google Sign-In was cancelled or failed. Please check browser popups.');
+    }
+  };
+
+  const handleLogout = async () => {
+    await AuthService.signOut();
+  };
+
   // Asset CRUD Handlers
   const handleSaveAsset = async (assetData: Asset) => {
-    const saved = await createOrUpdateAsset(assetData);
+    const userId = user ? user.uid : 'default_user';
+    const saved = await createOrUpdateAsset({ ...assetData, userId }, userId);
     let updatedList: Asset[];
     if (editingAsset && editingAsset.id) {
       updatedList = assets.map((a) => (a.id === editingAsset.id ? { ...saved, id: editingAsset.id } : a));
     } else {
       updatedList = [saved, ...assets];
     }
-    refreshPortfolio(updatedList, rates);
+    refreshPortfolio(updatedList, rates, userId);
     setEditingAsset(null);
   };
 
   const handleDeleteAsset = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this asset holding?')) {
-      await apiDeleteAsset(id);
+      const userId = user ? user.uid : 'default_user';
+      await apiDeleteAsset(id, userId);
       const remaining = assets.filter((a) => a.id !== id);
-      refreshPortfolio(remaining, rates);
+      refreshPortfolio(remaining, rates, userId);
       if (selectedAssetForDetail?.id === id) {
         setIsDetailDrawerOpen(false);
         setSelectedAssetForDetail(null);
@@ -126,7 +156,7 @@ export const App: React.FC = () => {
   const handleUpdateRates = async (newRates: { gold: number; silver: number }) => {
     const updated = await updateManualRates(newRates);
     setRates(updated);
-    refreshPortfolio(assets, updated);
+    refreshPortfolio(assets, updated, user ? user.uid : 'default_user');
   };
 
   const handleSyncRates = async () => {
@@ -134,7 +164,7 @@ export const App: React.FC = () => {
     try {
       const updated = await syncLiveMarketRates();
       setRates(updated);
-      refreshPortfolio(assets, updated);
+      refreshPortfolio(assets, updated, user ? user.uid : 'default_user');
     } catch (e) {
       console.warn('Sync failed:', e);
     } finally {
@@ -144,13 +174,13 @@ export const App: React.FC = () => {
 
   const handleImportSuccess = (importedAssets: Asset[]) => {
     const combined = [...importedAssets, ...assets];
-    refreshPortfolio(combined, rates);
+    refreshPortfolio(combined, rates, user ? user.uid : 'default_user');
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       
-      {/* Top Sticky Navigation */}
+      {/* Top Navigation */}
       <Navbar
         rates={rates}
         onOpenAddModal={handleOpenAddModal}
@@ -159,10 +189,13 @@ export const App: React.FC = () => {
         onOpenCsvModal={() => setIsCsvModalOpen(true)}
         onSyncRates={handleSyncRates}
         isSyncingRates={isSyncingRates}
+        user={user}
+        onLogin={handleGoogleLogin}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 space-y-5">
         
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
@@ -248,7 +281,7 @@ export const App: React.FC = () => {
       />
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-900/60 py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-800/80 bg-slate-900/60 py-5 text-center text-xs text-slate-500">
         <p>Asset Tracker • v4.0.1 • Built with React, Tailwind CSS &amp; Spring Boot</p>
       </footer>
 
