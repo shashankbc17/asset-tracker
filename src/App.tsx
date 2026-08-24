@@ -23,7 +23,7 @@ import { calculateAssetMetrics, computePortfolioSummary } from './utils/calculat
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(() => AuthService.getInitialUser());
   const [rates, setRates] = useState<MetalRates>({
     gold: 16408,
     gold24k: 16408,
@@ -110,7 +110,8 @@ export const App: React.FC = () => {
         const initialRates = await fetchCurrentRates();
         setRates(initialRates);
 
-        const currentUserId = user ? user.uid : 'default_user';
+        const activeUser = AuthService.getInitialUser() || user;
+        const currentUserId = activeUser ? activeUser.uid : 'default_user';
         const loadedAssets = await getAssets(currentUserId, initialRates);
         refreshPortfolio(loadedAssets, initialRates, currentUserId);
       } catch (err) {

@@ -25,7 +25,31 @@ class AuthenticationService {
   private auth: Auth | null = null;
 
   constructor() {
+    // 1. Immediately read cached user session synchronously from localStorage in 0ms
+    const cached = localStorage.getItem('metals_auth_user');
+    if (cached) {
+      try {
+        this.currentUser = JSON.parse(cached);
+      } catch {
+        this.currentUser = null;
+      }
+    }
+
+    // 2. Initialize Firebase Auth asynchronously in background to confirm valid token
     this.initFirebase();
+  }
+
+  getInitialUser(): UserProfile | null {
+    if (this.currentUser) return this.currentUser;
+    const cached = localStorage.getItem('metals_auth_user');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 
   private initFirebase() {
@@ -51,14 +75,6 @@ class AuthenticationService {
       });
     } catch (err) {
       console.warn('Firebase Auth initialization error:', err);
-      const cached = localStorage.getItem('metals_auth_user');
-      if (cached) {
-        try {
-          this.currentUser = JSON.parse(cached);
-        } catch {
-          this.currentUser = null;
-        }
-      }
       this.notify();
     }
   }
@@ -106,6 +122,7 @@ class AuthenticationService {
 
   onAuthStateChange(cb: AuthListener): () => void {
     this.listeners.push(cb);
+    // Immediately call listener with current user state
     cb(this.currentUser);
     return () => {
       this.listeners = this.listeners.filter((l) => l !== cb);
