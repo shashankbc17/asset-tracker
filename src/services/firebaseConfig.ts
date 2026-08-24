@@ -1,18 +1,32 @@
-// Original Dedicated Firebase Configuration for Asset Tracker (My Wealth Tracker)
-// Project ID: my-wealth-tracker-50d2c
+// Firebase Configuration for Asset Tracker (My Wealth Tracker)
 // Admin: shashankbc17@gmail.com
+//
+// ⚠️  SECURITY: Credentials are loaded from environment variables.
+//     Copy .env.example → .env and fill in your Firebase values.
+//     Never hardcode secrets directly in this file.
 
 export const ADMIN_EMAILS = ['shashankbc17@gmail.com'];
 
-export const DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCfsEG-1jGkImSumkNFqKVnyaSiXHkT8ys",
-  authDomain: "my-wealth-tracker-50d2c.firebaseapp.com",
-  projectId: "my-wealth-tracker-50d2c",
-  storageBucket: "my-wealth-tracker-50d2c.firebasestorage.app",
-  messagingSenderId: "749131807291",
-  appId: "1:749131807291:web:89cab5dbd316e5ed2dfa1e",
-  measurementId: "G-HWGSD19563"
+// Read config from Vite environment variables (injected at build time from .env)
+const ENV_FIREBASE_CONFIG = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
+
+// Warn loudly in development if .env is not set up
+if (!ENV_FIREBASE_CONFIG.apiKey) {
+  console.warn(
+    '⚠️ Firebase API key is missing. ' +
+    'Copy .env.example to .env and fill in your Firebase credentials.'
+  );
+}
+
+export const DEFAULT_FIREBASE_CONFIG = ENV_FIREBASE_CONFIG;
 
 export function getActiveFirebaseConfig() {
   const custom = localStorage.getItem('firebase_web_config') || localStorage.getItem('metals_firebase_config');
@@ -20,8 +34,9 @@ export function getActiveFirebaseConfig() {
     try {
       return JSON.parse(custom);
     } catch {
-      // fallback
+      // fallback to env config
     }
   }
   return DEFAULT_FIREBASE_CONFIG;
 }
+

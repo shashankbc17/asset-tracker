@@ -1,0 +1,72 @@
+name: 🚀 Deploy to Production (Firebase Hosting)
+# -------------------------------------------------------
+# PRODUCTION ENVIRONMENT
+#
+# ⚠️  This does NOT auto-deploy on every commit.
+# It only runs when YOU explicitly trigger it via:
+#   1. Pushing to the 'prod' branch
+#   2. Clicking "Run workflow" in GitHub Actions UI
+#
+# How to release to production:
+#   Option A (recommended): Go to GitHub → Actions →
+#     "Deploy to Production" → Run workflow
+#   Option B: git checkout prod && git merge main && git push origin prod
+# -------------------------------------------------------
+
+on:
+  # Manual trigger — adds a "Run workflow" button in GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production release'
+        required: true
+        default: ''
+
+  # Also triggers if you push directly to the prod branch
+  push:
+    branches: ["prod"]
+
+jobs:
+  deploy-production:
+    name: Build & Deploy to Firebase
+    runs-on: ubuntu-latest
+
+    # Safety check — only proceed if manual input says "deploy"
+    # (skipped when triggered via prod branch push)
+    if: github.event_name == 'push' || github.event.inputs.confirm == 'deploy'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || 'refs/heads/main' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Project (Production)
+        run: npm run build
+        env:
+          # Firebase config injected from GitHub Secrets (Settings → Secrets → Actions)
+          # Add these in: GitHub repo → Settings → Secrets and variables → Actions
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live         # deploys to the live/production channel
+          projectId: my-wealth-tracker-50d2c

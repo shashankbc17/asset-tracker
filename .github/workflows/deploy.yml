@@ -1,9 +1,17 @@
-name: Deploy AuraVault Portfolio to GitHub Pages
+name: 🚦 Deploy to Staging (GitHub Pages)
+# -------------------------------------------------------
+# STAGING ENVIRONMENT
+# Triggers automatically on every push to: main
+#
+# Environment flow:
+#   Dev    → localhost:5173       (your machine)
+#   Staging→ GitHub Pages         (this workflow, auto)
+#   Prod   → Firebase Hosting     (deploy-production.yml, manual only)
+# -------------------------------------------------------
 
 on:
   push:
-    branches: ["main", "master"]
-  workflow_dispatch:
+    branches: ["main"]   # staging auto-deploys on every push to main
 
 permissions:
   contents: read
@@ -32,6 +40,8 @@ jobs:
 
       - name: Build Project
         run: npm run build
+        env:
+          VITE_BASE_PATH: /asset-tracker/
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

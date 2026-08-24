@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "my-wealth-tracker-50d2c",
+    "production": "my-wealth-tracker-50d2c"
+  }
+}

@@ -36,5 +36,12 @@ data/
 *.log
 node_modules/
 dist/
+.firebase/
 .DS_Store
 Thumbs.db
+
+### Environment Variables (secrets — never commit) ###
+.env
+.env.local
+.env.*.local
+# Note: .env.example IS committed — it's a safe template with placeholder values
