@@ -454,20 +454,35 @@ async function saveAsset(data) {
   }
 
   const assets = getLocalAssets();
+  const assetName = data.name || 'Asset';
+
   if (editingId) {
     const idx = assets.findIndex(a => a.id === editingId);
     if (idx !== -1) {
       assets[idx] = { ...assets[idx], ...data, id: editingId };
-      showToast('Asset updated successfully!', 'success');
+      showToast(`✅ "${assetName}" updated successfully!`, 'success');
     }
   } else {
     const newId = assets.length > 0 ? Math.max(...assets.map(a => a.id || 0)) + 1 : 1;
     assets.unshift({ ...data, id: newId });
-    showToast('New asset saved to your cloud portfolio!', 'success');
+    showToast(`🎉 "${assetName}" added to your portfolio!`, 'success');
   }
 
   saveLocalAssets(assets);
   resetForm();
+
+  // On mobile, automatically withdraw / collapse the form after entry
+  if (window.innerWidth <= 768) {
+    collapseAddAssetForm();
+    const hintEl = document.getElementById('form-toggle-hint');
+    if (hintEl) {
+      hintEl.innerText = '✓ Added! Tap to add another';
+      setTimeout(() => {
+        updateFormToggleUI();
+      }, 4000);
+    }
+  }
+
   loadPortfolio();
 }
 
@@ -1209,6 +1224,81 @@ function renderTable(items) {
   updateBulkActionBar();
 }
 
+// -------------------------------------------------------------
+// MOBILE COLLAPSIBLE ACCORDION CONTROLLERS
+// -------------------------------------------------------------
+function updateFormToggleUI() {
+  const formSection = document.getElementById('form-section');
+  const toggleHeader = document.getElementById('form-toggle-header');
+  const hintEl = document.getElementById('form-toggle-hint');
+  const iconEl = document.getElementById('form-header-icon');
+
+  if (!formSection) return;
+  const isCollapsed = formSection.classList.contains('collapsed');
+
+  if (toggleHeader) {
+    toggleHeader.setAttribute('aria-expanded', (!isCollapsed).toString());
+  }
+
+  if (hintEl) {
+    if (editingId) {
+      hintEl.innerText = isCollapsed ? 'Tap to view edit' : 'Editing in progress';
+    } else {
+      hintEl.innerText = isCollapsed ? 'Tap to expand' : 'Tap to collapse';
+    }
+  }
+
+  if (iconEl && !editingId) {
+    iconEl.innerText = isCollapsed ? '➕' : '📝';
+  }
+}
+
+function toggleAddAssetForm(forceState) {
+  const formSection = document.getElementById('form-section');
+  if (!formSection) return;
+
+  if (typeof forceState === 'boolean') {
+    if (forceState) {
+      formSection.classList.remove('collapsed');
+    } else {
+      formSection.classList.add('collapsed');
+    }
+  } else {
+    formSection.classList.toggle('collapsed');
+  }
+
+  updateFormToggleUI();
+}
+
+function expandAddAssetForm() {
+  toggleAddAssetForm(true);
+}
+
+function collapseAddAssetForm() {
+  toggleAddAssetForm(false);
+}
+
+function toggleFilterBar(forceState) {
+  const toolbar = document.getElementById('table-toolbar');
+  const header = document.getElementById('filter-toggle-header');
+  if (!toolbar) return;
+
+  if (typeof forceState === 'boolean') {
+    if (forceState) {
+      toolbar.classList.remove('collapsed');
+    } else {
+      toolbar.classList.add('collapsed');
+    }
+  } else {
+    toolbar.classList.toggle('collapsed');
+  }
+
+  if (header) {
+    const isExpanded = !toolbar.classList.contains('collapsed');
+    header.setAttribute('aria-expanded', isExpanded.toString());
+  }
+}
+
 function editAsset(id) {
   const item = currentSummary?.items.find(i => i.asset.id === id);
   if (!item) return;
@@ -1216,7 +1306,11 @@ function editAsset(id) {
   editingId = id;
   const a = item.asset;
 
+  expandAddAssetForm();
+
   document.getElementById('form-title').innerText = `✏️ Edit: ${a.name}`;
+  const iconEl = document.getElementById('form-header-icon');
+  if (iconEl) iconEl.innerText = '✏️';
   document.getElementById('submit-btn').innerText = '💾 Update Asset';
   document.getElementById('cancel-btn').style.display = 'block';
 
@@ -1260,19 +1354,21 @@ function editAsset(id) {
     document.getElementById('pf-rate').value = a.pfInterestRate || (a.pfSchemeType === 'PPF' ? 7.10 : 8.25);
   }
 
-  const formSection = document.querySelector('.form-section');
+  const formSection = document.getElementById('form-section') || document.querySelector('.form-section');
   if (formSection) {
-    formSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     formSection.classList.add('form-highlight');
     setTimeout(() => formSection.classList.remove('form-highlight'), 1600);
   }
   document.getElementById('asset-name').focus();
-  showToast(`Editing "${a.name}" - update details in the form on the left.`, 'info');
+  showToast(`Editing "${a.name}" - update details in the form.`, 'info');
 }
 
 function resetForm() {
   editingId = null;
   document.getElementById('form-title').innerText = 'Add Asset';
+  const iconEl = document.getElementById('form-header-icon');
+  if (iconEl) iconEl.innerText = '➕';
   document.getElementById('submit-btn').innerText = '✨ Save Asset to Portfolio';
   document.getElementById('cancel-btn').style.display = 'none';
   document.getElementById('asset-form')?.reset();
@@ -1292,6 +1388,7 @@ function resetForm() {
   togglePfStatusFields('ACTIVE');
 
   updateDateRateSuggestion(false);
+  updateFormToggleUI();
 }
 
 // -------------------------------------------------------------
@@ -1700,12 +1797,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Mobile Collapsible Toggle Headers
+  const formToggleHeader = document.getElementById('form-toggle-header');
+  if (formToggleHeader) {
+    formToggleHeader.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        toggleAddAssetForm();
+      }
+    });
+    formToggleHeader.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && window.innerWidth <= 768) {
+        e.preventDefault();
+        toggleAddAssetForm();
+      }
+    });
+  }
+
+  const filterToggleHeader = document.getElementById('filter-toggle-header');
+  if (filterToggleHeader) {
+    filterToggleHeader.addEventListener('click', () => {
+      toggleFilterBar();
+    });
+    filterToggleHeader.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleFilterBar();
+      }
+    });
+  }
+
   // Filter Tabs / Filter Chips
   document.querySelectorAll('.filter-chip, .filter-tab').forEach(chip => {
     chip.addEventListener('click', () => {
       document.querySelectorAll('.filter-chip, .filter-tab').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       currentFilterType = chip.dataset.filterType || chip.dataset.filter || 'ALL';
+
+      const activePill = document.getElementById('filter-active-pill');
+      if (activePill) {
+        activePill.textContent = chip.textContent.trim();
+      }
+
       renderTable(currentSummary?.items || []);
     });
   });
@@ -1718,6 +1850,9 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTable(currentSummary?.items || []);
     });
   }
+
+  // Initialize Form Toggle UI state
+  updateFormToggleUI();
 
   // Form Submit Handler
   document.getElementById('asset-form')?.addEventListener('submit', (e) => {

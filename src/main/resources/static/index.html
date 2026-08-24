@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=2.9.1">
+  <link rel="stylesheet" href="css/styles.css?v=3.1.0">
   <!-- Firebase SDK for Google Auth & Cloud Firestore Sync -->
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
@@ -165,198 +165,221 @@
 
     <!-- Main Workspace Layout -->
     <main class="layout">
-      <!-- Left: Adaptive Asset Entry Form -->
-      <section class="form-section">
-        <div class="section-header">
-          <h3 id="form-title">Add Asset</h3>
+      <!-- Left: Adaptive Asset Entry Form (Collapsible on Mobile) -->
+      <section class="form-section collapsed" id="form-section">
+        <div class="section-header collapsible-header" id="form-toggle-header" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle Add Asset Form">
+          <div class="section-header-title">
+            <span class="form-header-icon" id="form-header-icon">➕</span>
+            <h3 id="form-title">Add Asset</h3>
+          </div>
+          <div class="form-toggle-indicator">
+            <span class="toggle-hint" id="form-toggle-hint">Tap to expand</span>
+            <span class="toggle-chevron" id="form-toggle-chevron">▼</span>
+          </div>
         </div>
-        <form id="asset-form">
-          <div class="form-group">
-            <label for="asset-type-select">Asset Class</label>
-            <select id="asset-type-select" onchange="toggleFormFieldsets(this.value)" required>
-              <option value="PRECIOUS_METALS">🪙 Precious Metals (Gold / Silver)</option>
-              <option value="EQUITY">📈 Equities &amp; Mutual Funds</option>
-              <option value="REAL_ESTATE">🏡 Real Estate (Land / House)</option>
-              <option value="CASH_SAVINGS">💰 Cash &amp; Fixed Deposits</option>
-              <option value="PROVIDENT_FUND">🛡️ Provident Fund &amp; PPF (EPF / PPF / VPF)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="asset-name">Asset Name / Title</label>
-            <input type="text" id="asset-name" placeholder="e.g. 24K Gold Bar, TCS, 3BHK Flat, EPFO Account" required />
-          </div>
-
-          <div class="form-group">
-            <label for="asset-date">Purchase / Deposit / Starting Date</label>
-            <input type="date" id="asset-date" required />
-            <div id="date-rate-indicator" style="display: none; font-size: 0.75rem; color: var(--gold-light); margin-top: 4px;"></div>
-          </div>
-
-          <!-- Dynamic Fieldset: Precious Metals -->
-          <div id="fields-metals" class="dynamic-fieldset">
+        <div class="form-collapse-body" id="form-collapse-body">
+          <form id="asset-form">
             <div class="form-group">
-              <label for="metal-type">Metal</label>
-              <select id="metal-type">
-                <option value="GOLD">Gold (22K)</option>
-                <option value="SILVER">Silver</option>
+              <label for="asset-type-select">Asset Class</label>
+              <select id="asset-type-select" onchange="toggleFormFieldsets(this.value)" required>
+                <option value="PRECIOUS_METALS">🪙 Precious Metals (Gold / Silver)</option>
+                <option value="EQUITY">📈 Equities &amp; Mutual Funds</option>
+                <option value="REAL_ESTATE">🏡 Real Estate (Land / House)</option>
+                <option value="CASH_SAVINGS">💰 Cash &amp; Fixed Deposits</option>
+                <option value="PROVIDENT_FUND">🛡️ Provident Fund &amp; PPF (EPF / PPF / VPF)</option>
               </select>
             </div>
+
             <div class="form-group">
-              <label for="item-category">Category</label>
-              <select id="item-category">
-                <option value="COIN_BAR">Coin / Bar (0% Deduction)</option>
-                <option value="JEWELRY">Jewelry (Standard Deductions)</option>
-              </select>
+              <label for="asset-name">Asset Name / Title</label>
+              <input type="text" id="asset-name" placeholder="e.g. 24K Gold Bar, TCS, 3BHK Flat, EPFO Account" required />
             </div>
+
             <div class="form-group">
-              <label for="item-grams">Weight (Grams)</label>
-              <input type="number" id="item-grams" step="0.01" min="0.01" placeholder="e.g. 10.5" />
+              <label for="asset-date">Purchase / Deposit / Starting Date</label>
+              <input type="date" id="asset-date" required />
+              <div id="date-rate-indicator" style="display: none; font-size: 0.75rem; color: var(--gold-light); margin-top: 4px;"></div>
             </div>
-            <div class="form-group">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <label for="item-rate-bought" style="margin-bottom: 0;">Buy Rate (₹/g)</label>
-                <button type="button" id="btn-fetch-date-rate" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.72rem; background: rgba(212, 175, 55, 0.12); border: 1px solid var(--gold-primary); color: var(--gold-light); cursor: pointer; border-radius: 4px;" title="Auto-fill official Bangalore benchmark rate for selected date">⚡ Fetch Date Rate</button>
+
+            <!-- Dynamic Fieldset: Precious Metals -->
+            <div id="fields-metals" class="dynamic-fieldset">
+              <div class="form-group">
+                <label for="metal-type">Metal</label>
+                <select id="metal-type">
+                  <option value="GOLD">Gold (22K)</option>
+                  <option value="SILVER">Silver</option>
+                </select>
               </div>
-              <input type="number" id="item-rate-bought" step="0.01" min="1" placeholder="e.g. 12500" />
-              <div id="rate-suggestion-hint" style="display: none; font-size: 0.75rem; color: var(--gold-light); margin-top: 4px;"></div>
+              <div class="form-group">
+                <label for="item-category">Category</label>
+                <select id="item-category">
+                  <option value="COIN_BAR">Coin / Bar (0% Deduction)</option>
+                  <option value="JEWELRY">Jewelry (Standard Deductions)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="item-grams">Weight (Grams)</label>
+                <input type="number" id="item-grams" step="0.01" min="0.01" placeholder="e.g. 10.5" />
+              </div>
+              <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <label for="item-rate-bought" style="margin-bottom: 0;">Buy Rate (₹/g)</label>
+                  <button type="button" id="btn-fetch-date-rate" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.72rem; background: rgba(212, 175, 55, 0.12); border: 1px solid var(--gold-primary); color: var(--gold-light); cursor: pointer; border-radius: 4px;" title="Auto-fill official Bangalore benchmark rate for selected date">⚡ Fetch Date Rate</button>
+                </div>
+                <input type="number" id="item-rate-bought" step="0.01" min="1" placeholder="e.g. 12500" />
+                <div id="rate-suggestion-hint" style="display: none; font-size: 0.75rem; color: var(--gold-light); margin-top: 4px;"></div>
+              </div>
+              <div class="form-group">
+                <label for="item-deduction">Expected Deduction (%)</label>
+                <input type="number" id="item-deduction" step="0.1" min="0" max="100" value="0" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="item-deduction">Expected Deduction (%)</label>
-              <input type="number" id="item-deduction" step="0.1" min="0" max="100" value="0" />
-            </div>
-          </div>
 
-          <!-- Dynamic Fieldset: Equities / Stocks -->
-          <div id="fields-equity" class="dynamic-fieldset" style="display: none;">
-            <div class="form-group">
-              <label for="equity-ticker">Ticker / Symbol</label>
-              <input type="text" id="equity-ticker" placeholder="e.g. TCS, INFY, NIFTYBEES" />
+            <!-- Dynamic Fieldset: Equities / Stocks -->
+            <div id="fields-equity" class="dynamic-fieldset" style="display: none;">
+              <div class="form-group">
+                <label for="equity-ticker">Ticker / Symbol</label>
+                <input type="text" id="equity-ticker" placeholder="e.g. TCS, INFY, NIFTYBEES" />
+              </div>
+              <div class="form-group">
+                <label for="equity-qty">Quantity (Shares / Units)</label>
+                <input type="number" id="equity-qty" step="1" min="1" placeholder="e.g. 50" />
+              </div>
+              <div class="form-group">
+                <label for="equity-buy-price">Buy Price / Share (₹)</label>
+                <input type="number" id="equity-buy-price" step="0.01" min="0.1" placeholder="e.g. 3850" />
+              </div>
+              <div class="form-group">
+                <label for="equity-current-price">Current Market Price (₹)</label>
+                <input type="number" id="equity-current-price" step="0.01" min="0.1" placeholder="e.g. 4200" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="equity-qty">Quantity (Shares / Units)</label>
-              <input type="number" id="equity-qty" step="1" min="1" placeholder="e.g. 50" />
-            </div>
-            <div class="form-group">
-              <label for="equity-buy-price">Buy Price / Share (₹)</label>
-              <input type="number" id="equity-buy-price" step="0.01" min="0.1" placeholder="e.g. 3850" />
-            </div>
-            <div class="form-group">
-              <label for="equity-current-price">Current Market Price (₹)</label>
-              <input type="number" id="equity-current-price" step="0.01" min="0.1" placeholder="e.g. 4200" />
-            </div>
-          </div>
 
-          <!-- Dynamic Fieldset: Real Estate -->
-          <div id="fields-real-estate" class="dynamic-fieldset" style="display: none;">
-            <div class="form-group">
-              <label for="re-location">Location / City</label>
-              <input type="text" id="re-location" placeholder="e.g. Bengaluru, Indiranagar" />
+            <!-- Dynamic Fieldset: Real Estate -->
+            <div id="fields-real-estate" class="dynamic-fieldset" style="display: none;">
+              <div class="form-group">
+                <label for="re-location">Location / City</label>
+                <input type="text" id="re-location" placeholder="e.g. Bengaluru, Indiranagar" />
+              </div>
+              <div class="form-group">
+                <label for="re-area">Area (Sq. Ft)</label>
+                <input type="number" id="re-area" step="1" placeholder="e.g. 1850" />
+              </div>
+              <div class="form-group">
+                <label for="re-purchase-price">Invested Capital / Purchase Cost (₹)</label>
+                <input type="number" id="re-purchase-price" step="1000" placeholder="e.g. 12500000" />
+              </div>
+              <div class="form-group">
+                <label for="re-current-val">Current Market Valuation (₹)</label>
+                <input type="number" id="re-current-val" step="1000" placeholder="e.g. 16000000" />
+              </div>
+              <div class="form-group">
+                <label for="re-rent">Monthly Rental Income (₹, Optional)</label>
+                <input type="number" id="re-rent" step="500" placeholder="e.g. 65000" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="re-area">Area (Sq. Ft)</label>
-              <input type="number" id="re-area" step="1" placeholder="e.g. 1850" />
-            </div>
-            <div class="form-group">
-              <label for="re-purchase-price">Invested Capital / Purchase Cost (₹)</label>
-              <input type="number" id="re-purchase-price" step="1000" placeholder="e.g. 12500000" />
-            </div>
-            <div class="form-group">
-              <label for="re-current-val">Current Market Valuation (₹)</label>
-              <input type="number" id="re-current-val" step="1000" placeholder="e.g. 16000000" />
-            </div>
-            <div class="form-group">
-              <label for="re-rent">Monthly Rental Income (₹, Optional)</label>
-              <input type="number" id="re-rent" step="500" placeholder="e.g. 65000" />
-            </div>
-          </div>
 
-          <!-- Dynamic Fieldset: Cash / Fixed Deposits -->
-          <div id="fields-cash" class="dynamic-fieldset" style="display: none;">
-            <div class="form-group">
-              <label for="cash-bank">Bank / Financial Institution</label>
-              <input type="text" id="cash-bank" placeholder="e.g. HDFC Bank, SBI, ICICI" />
+            <!-- Dynamic Fieldset: Cash / Fixed Deposits -->
+            <div id="fields-cash" class="dynamic-fieldset" style="display: none;">
+              <div class="form-group">
+                <label for="cash-bank">Bank / Financial Institution</label>
+                <input type="text" id="cash-bank" placeholder="e.g. HDFC Bank, SBI, ICICI" />
+              </div>
+              <div class="form-group">
+                <label for="cash-deposit">Invested Capital / Principal Deposit (₹)</label>
+                <input type="number" id="cash-deposit" step="100" placeholder="e.g. 500000" />
+              </div>
+              <div class="form-group">
+                <label for="cash-rate">Interest Rate (% p.a.)</label>
+                <input type="number" id="cash-rate" step="0.05" placeholder="e.g. 7.25" />
+              </div>
+              <div class="form-group">
+                <label for="cash-maturity">Maturity Date (Optional)</label>
+                <input type="date" id="cash-maturity" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="cash-deposit">Invested Capital / Principal Deposit (₹)</label>
-              <input type="number" id="cash-deposit" step="100" placeholder="e.g. 500000" />
-            </div>
-            <div class="form-group">
-              <label for="cash-rate">Interest Rate (% p.a.)</label>
-              <input type="number" id="cash-rate" step="0.05" placeholder="e.g. 7.25" />
-            </div>
-            <div class="form-group">
-              <label for="cash-maturity">Maturity Date (Optional)</label>
-              <input type="date" id="cash-maturity" />
-            </div>
-          </div>
 
-          <!-- Dynamic Fieldset: Provident Fund & PPF -->
-          <div id="fields-pf" class="dynamic-fieldset" style="display: none;">
-            <div class="form-group">
-              <label for="pf-scheme-type">Scheme Type</label>
-              <select id="pf-scheme-type" onchange="handlePfSchemeChange(this.value)">
-                <option value="EPF">EPF (Employee Provident Fund - Salaried)</option>
-                <option value="PPF">PPF (Public Provident Fund)</option>
-                <option value="VPF">VPF (Voluntary Provident Fund)</option>
-              </select>
+            <!-- Dynamic Fieldset: Provident Fund & PPF -->
+            <div id="fields-pf" class="dynamic-fieldset" style="display: none;">
+              <div class="form-group">
+                <label for="pf-scheme-type">Scheme Type</label>
+                <select id="pf-scheme-type" onchange="handlePfSchemeChange(this.value)">
+                  <option value="EPF">EPF (Employee Provident Fund - Salaried)</option>
+                  <option value="PPF">PPF (Public Provident Fund)</option>
+                  <option value="VPF">VPF (Voluntary Provident Fund)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="pf-uan">UAN / Account ID (Optional)</label>
+                <input type="text" id="pf-uan" placeholder="e.g. 100987654321 / Passbook ID" />
+              </div>
+              <div class="form-group">
+                <label for="pf-balance">Current / Starting Balance (₹)</label>
+                <input type="number" id="pf-balance" step="100" placeholder="e.g. 450000" />
+              </div>
+              <div class="form-group">
+                <label for="pf-status">Employment / Contribution Status</label>
+                <select id="pf-status" onchange="togglePfStatusFields(this.value)">
+                  <option value="ACTIVE">🟢 Active (Employed - Monthly PF Deductions Ongoing)</option>
+                  <option value="DORMANT">⚪ Dormant / Inactive (No Current Job - Compound Interest Only)</option>
+                </select>
+              </div>
+              <div class="form-group" id="pf-monthly-group">
+                <label for="pf-monthly-contrib">Monthly Contribution (₹/month) <span class="text-muted" style="font-size: 0.72rem;">(Employee + Employer Share)</span></label>
+                <input type="number" id="pf-monthly-contrib" step="100" placeholder="e.g. 15000" />
+              </div>
+              <div class="form-group">
+                <label for="pf-rate">Govt Annual Interest Rate (% p.a.)</label>
+                <input type="number" id="pf-rate" step="0.05" value="8.25" placeholder="e.g. 8.25" />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="pf-uan">UAN / Account ID (Optional)</label>
-              <input type="text" id="pf-uan" placeholder="e.g. 100987654321 / Passbook ID" />
-            </div>
-            <div class="form-group">
-              <label for="pf-balance">Current / Starting Balance (₹)</label>
-              <input type="number" id="pf-balance" step="100" placeholder="e.g. 450000" />
-            </div>
-            <div class="form-group">
-              <label for="pf-status">Employment / Contribution Status</label>
-              <select id="pf-status" onchange="togglePfStatusFields(this.value)">
-                <option value="ACTIVE">🟢 Active (Employed - Monthly PF Deductions Ongoing)</option>
-                <option value="DORMANT">⚪ Dormant / Inactive (No Current Job - Compound Interest Only)</option>
-              </select>
-            </div>
-            <div class="form-group" id="pf-monthly-group">
-              <label for="pf-monthly-contrib">Monthly Contribution (₹/month) <span class="text-muted" style="font-size: 0.72rem;">(Employee + Employer Share)</span></label>
-              <input type="number" id="pf-monthly-contrib" step="100" placeholder="e.g. 15000" />
-            </div>
-            <div class="form-group">
-              <label for="pf-rate">Govt Annual Interest Rate (% p.a.)</label>
-              <input type="number" id="pf-rate" step="0.05" value="8.25" placeholder="e.g. 8.25" />
-            </div>
-          </div>
 
-          <div class="form-actions">
-            <button type="submit" class="btn-submit" id="submit-btn">
-              ✨ Save Asset to Portfolio
-            </button>
-            <button type="button" class="btn btn-danger" id="cancel-btn" style="display: none;">
-              Cancel Edit
-            </button>
-          </div>
-        </form>
+            <div class="form-actions">
+              <button type="submit" class="btn-submit" id="submit-btn">
+                ✨ Save Asset to Portfolio
+              </button>
+              <button type="button" class="btn btn-danger" id="cancel-btn" style="display: none;">
+                Cancel Edit
+              </button>
+            </div>
+          </form>
+        </div>
       </section>
 
       <!-- Right: Asset Filter Tabs + Asset List Table -->
       <section class="list-section">
-        <div class="table-toolbar">
-          <div class="filter-group">
-            <button class="filter-chip active" data-filter-type="ALL">All Assets</button>
-            <button class="filter-chip" data-filter-type="PRECIOUS_METALS">🪙 Metals</button>
-            <button class="filter-chip" data-filter-type="EQUITY">📈 Equities</button>
-            <button class="filter-chip" data-filter-type="REAL_ESTATE">🏡 Real Estate</button>
-            <button class="filter-chip" data-filter-type="CASH_SAVINGS">💰 Cash &amp; FDs</button>
-            <button class="filter-chip" data-filter-type="PROVIDENT_FUND">🛡️ PF &amp; Pension</button>
+        <div class="table-toolbar collapsed" id="table-toolbar">
+          <!-- Mobile Collapsible Filter Toggle Header -->
+          <div class="filter-toggle-header" id="filter-toggle-header" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle Asset Filters">
+            <div class="filter-toggle-left">
+              <span class="filter-icon">🔍</span>
+              <span class="filter-title">Filters &amp; Sort</span>
+              <span class="filter-active-pill" id="filter-active-pill">All Assets</span>
+            </div>
+            <div class="filter-toggle-right">
+              <span class="filter-chevron" id="filter-chevron">▼</span>
+            </div>
           </div>
 
-          <div class="sort-group">
-            <label for="sort-select">Sort By:</label>
-            <select id="sort-select">
-              <option value="value-desc">Current Value: Highest ₹</option>
-              <option value="return-desc">Returns: Highest %</option>
-              <option value="date-desc">Date: Newest First</option>
-              <option value="date-asc">Date: Oldest First</option>
-            </select>
+          <div class="filter-collapse-body" id="filter-collapse-body">
+            <div class="filter-group">
+              <button class="filter-chip active" data-filter-type="ALL">All Assets</button>
+              <button class="filter-chip" data-filter-type="PRECIOUS_METALS">🪙 Metals</button>
+              <button class="filter-chip" data-filter-type="EQUITY">📈 Equities</button>
+              <button class="filter-chip" data-filter-type="REAL_ESTATE">🏡 Real Estate</button>
+              <button class="filter-chip" data-filter-type="CASH_SAVINGS">💰 Cash &amp; FDs</button>
+              <button class="filter-chip" data-filter-type="PROVIDENT_FUND">🛡️ PF &amp; Pension</button>
+            </div>
+
+            <div class="sort-group">
+              <label for="sort-select">Sort By:</label>
+              <select id="sort-select">
+                <option value="value-desc">Current Value: Highest ₹</option>
+                <option value="return-desc">Returns: Highest %</option>
+                <option value="date-desc">Date: Newest First</option>
+                <option value="date-asc">Date: Oldest First</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -444,6 +467,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=3.0.1"></script>
+  <script src="js/app.js?v=3.1.0"></script>
 </body>
 </html>
