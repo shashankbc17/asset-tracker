@@ -17,10 +17,14 @@ on:
   # Manual trigger — adds a "Run workflow" button in GitHub Actions UI
   workflow_dispatch:
     inputs:
+      commit_sha:
+        description: 'Specific Commit SHA or Tag to deploy (leave blank for latest main)'
+        required: false
+        default: ''
       confirm:
         description: 'Type "deploy" to confirm production release'
         required: true
-        default: ''
+        default: 'deploy'
 
   # Also triggers if you push directly to the prod branch
   push:
@@ -39,7 +43,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref || 'refs/heads/main' }}
+          # Use specific commit/tag if provided; otherwise fallback to prod branch or main
+          ref: ${{ github.event.inputs.commit_sha != '' && github.event.inputs.commit_sha || (github.event_name == 'push' && github.ref || 'refs/heads/main') }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
