@@ -37,7 +37,7 @@ export const AssetList: React.FC<AssetListProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'value' | 'gain' | 'date' | 'name'>('value');
   const [sortAsc, setSortAsc] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
   const sortOptions = [
@@ -102,15 +102,6 @@ export const AssetList: React.FC<AssetListProps> = ({
           {/* View Mode Toggle */}
           <div className="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/80">
             <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition-all ${
-                viewMode === 'grid' ? 'bg-amber-500/20 text-amber-400 shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Grid View"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
               onClick={() => setViewMode('table')}
               className={`p-1.5 rounded-lg transition-all ${
                 viewMode === 'table' ? 'bg-amber-500/20 text-amber-400 shadow' : 'text-slate-400 hover:text-slate-200'
@@ -118,6 +109,15 @@ export const AssetList: React.FC<AssetListProps> = ({
               title="Table View"
             >
               <List className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-lg transition-all ${
+                viewMode === 'grid' ? 'bg-amber-500/20 text-amber-400 shadow' : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid className="w-4 h-4" />
             </button>
           </div>
 
@@ -187,34 +187,36 @@ export const AssetList: React.FC<AssetListProps> = ({
 
       </div>
 
-      {/* Main Content: Grid vs Table View */}
+      {/* Main Content: High-Density Table View (Desktop default) vs Card Grid */}
       {filteredAssets.length > 0 ? (
-        viewMode === 'grid' ? (
-          /* Grid View */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAssets.map((asset) => (
-              <AssetCard
-                key={asset.id || Math.random()}
-                asset={asset}
-                onSelect={onSelectAsset}
-                onEdit={onEditAsset}
-                onDelete={onDeleteAsset}
-              />
-            ))}
-          </div>
-        ) : (
+        viewMode === 'table' ? (
           /* High-Density Table View with On-Demand Hover Actions */
-          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl">
+            {/* Mobile Card List (When table is active on mobile screens) */}
+            <div className="sm:hidden divide-y divide-slate-800/60">
+              {filteredAssets.map((asset) => (
+                <div key={asset.id} className="p-3">
+                  <AssetCard
+                    asset={asset}
+                    onSelect={onSelectAsset}
+                    onEdit={onEditAsset}
+                    onDelete={onDeleteAsset}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
-                  <tr className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <tr className="border-b border-slate-800 bg-slate-950/70 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="py-3.5 px-4">Asset Details</th>
-                    <th className="py-3.5 px-4 hidden md:table-cell">Specifications</th>
-                    <th className="py-3.5 px-4 text-right">Invested</th>
+                    <th className="py-3.5 px-4">Key Specifications</th>
+                    <th className="py-3.5 px-4 text-right">Invested Capital</th>
                     <th className="py-3.5 px-4 text-right">Current Valuation</th>
-                    <th className="py-3.5 px-4 text-right">Gain / ROI</th>
-                    <th className="py-3.5 px-4 w-12 text-center"></th>
+                    <th className="py-3.5 px-4 text-right">Profit / Returns</th>
+                    <th className="py-3.5 px-3 w-16 text-center"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -228,51 +230,75 @@ export const AssetList: React.FC<AssetListProps> = ({
                         onClick={() => onSelectAsset(asset)}
                         className="group hover:bg-slate-800/60 transition-colors cursor-pointer"
                       >
-                        {/* Title & Badge */}
+                        {/* Title, Badge & Date */}
                         <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-100 group-hover:text-amber-300 transition-colors">
-                            {asset.name}
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
-                              {metrics?.categoryBadge}
-                            </span>
-                            <span className="flex items-center gap-1 text-slate-500 font-mono">
-                              <Calendar className="w-3 h-3" />
-                              {asset.purchaseDate}
-                            </span>
+                          <div className="flex items-center gap-3">
+                            {metrics?.imagePath && (
+                              <img
+                                src={metrics.imagePath}
+                                alt={asset.name}
+                                onError={(e) => {
+                                  // Fallback hide on image load error
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                                className="w-9 h-9 rounded-xl object-cover border border-slate-700/80 shrink-0 bg-slate-800"
+                              />
+                            )}
+                            <div>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-slate-800 text-amber-300 border border-slate-700">
+                                  {metrics?.categoryBadge}
+                                </span>
+                              </div>
+                              <div className="font-bold text-slate-100 group-hover:text-amber-300 transition-colors text-sm">
+                                {asset.name}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
+                                <Calendar className="w-3 h-3 text-slate-500" />
+                                <span>{asset.purchaseDate}</span>
+                                {asset.notes && (
+                                  <span className="text-slate-500 truncate max-w-xs">
+                                    • {asset.notes}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </td>
 
                         {/* Specifications */}
-                        <td className="py-3.5 px-4 hidden md:table-cell text-slate-300 font-mono text-xs">
+                        <td className="py-3.5 px-4 text-slate-300 font-mono text-xs">
                           {metrics?.keyMetricDisplay || '—'}
                         </td>
 
                         {/* Invested */}
-                        <td className="py-3.5 px-4 text-right font-mono text-slate-300">
+                        <td className="py-3.5 px-4 text-right font-mono text-slate-300 text-sm">
                           {formatINR(metrics?.investedAmount || asset.investedAmount)}
                         </td>
 
                         {/* Current Value */}
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-amber-300">
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-amber-300 text-sm">
                           {formatINR(metrics?.currentValue)}
                         </td>
 
                         {/* Profit/Loss */}
                         <td className="py-3.5 px-4 text-right font-mono">
-                          <div className={`font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {isPositive ? '+' : ''}{formatINR(metrics?.profitLoss)}
+                          <div className={`font-bold text-sm ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {isPositive ? '+' : ''}{formatNumber(metrics?.returnPct, 2)}%
                           </div>
-                          <div className="text-[11px] opacity-80">
-                            {isPositive ? '+' : ''}{formatNumber(metrics?.returnPct, 1)}%
+                          <div className="text-[11px] text-slate-400 flex items-center justify-end gap-1 mt-0.5">
+                            {metrics?.cagrDisplay && metrics.cagrDisplay !== '(< 1 yr)' ? (
+                              <span className="text-emerald-400/90 font-medium">{metrics.cagrDisplay} CAGR</span>
+                            ) : (
+                              <span>{isPositive ? '+' : ''}{formatINR(metrics?.profitLoss)}</span>
+                            )}
                           </div>
                         </td>
 
                         {/* On-Demand Desktop Hover Actions */}
                         <td 
                           onClick={(e) => e.stopPropagation()}
-                          className="py-3.5 px-2 text-center relative"
+                          className="py-3.5 px-3 text-center"
                         >
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-1">
                             <button
@@ -297,6 +323,19 @@ export const AssetList: React.FC<AssetListProps> = ({
                 </tbody>
               </table>
             </div>
+          </div>
+        ) : (
+          /* Card Grid View */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredAssets.map((asset) => (
+              <AssetCard
+                key={asset.id || Math.random()}
+                asset={asset}
+                onSelect={onSelectAsset}
+                onEdit={onEditAsset}
+                onDelete={onDeleteAsset}
+              />
+            ))}
           </div>
         )
       ) : (

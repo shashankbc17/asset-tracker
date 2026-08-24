@@ -249,7 +249,7 @@ export const App: React.FC = () => {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-900/60 py-6 text-center text-xs text-slate-500">
-        <p>AuraVault Portfolio Tracker • v4.0.1 • Built with React, Tailwind CSS &amp; Spring Boot</p>
+        <p>Asset Tracker • v4.0.1 • Built with React, Tailwind CSS &amp; Spring Boot</p>
       </footer>
 
     </div>
