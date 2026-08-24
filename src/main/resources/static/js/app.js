@@ -918,22 +918,194 @@ function editAsset(id) {
   showToast(`Editing "${a.name}" - update details in the form on the left.`, 'info');
 }
 
+// -------------------------------------------------------------
+// HISTORICAL BULLION RATES & INTERPOLATION ENGINE (BANGALORE)
+// -------------------------------------------------------------
+let historicalBullionData = [];
+
+const FALLBACK_HISTORICAL_DATA = [
+  { "date": "2018-01-01", "gold22k": 2810, "gold24k": 3065, "silver": 39.5 },
+  { "date": "2018-06-01", "gold22k": 2890, "gold24k": 3150, "silver": 41.5 },
+  { "date": "2019-01-01", "gold22k": 3020, "gold24k": 3295, "silver": 41.8 },
+  { "date": "2019-08-01", "gold22k": 3480, "gold24k": 3795, "silver": 46.2 },
+  { "date": "2020-01-01", "gold22k": 3760, "gold24k": 4100, "silver": 48.8 },
+  { "date": "2020-08-07", "gold22k": 5350, "gold24k": 5835, "silver": 76.5 },
+  { "date": "2021-01-01", "gold22k": 4810, "gold24k": 5250, "silver": 71.0 },
+  { "date": "2021-06-15", "gold22k": 4610, "gold24k": 5030, "silver": 74.0 },
+  { "date": "2022-01-01", "gold22k": 4590, "gold24k": 5005, "silver": 65.0 },
+  { "date": "2022-08-15", "gold22k": 4840, "gold24k": 5280, "silver": 62.5 },
+  { "date": "2023-01-01", "gold22k": 5140, "gold24k": 5610, "silver": 74.0 },
+  { "date": "2023-04-15", "gold22k": 5620, "gold24k": 6130, "silver": 80.0 },
+  { "date": "2023-06-01", "gold22k": 5570, "gold24k": 6075, "silver": 75.5 },
+  { "date": "2023-10-28", "gold22k": 5690, "gold24k": 6205, "silver": 76.5 },
+  { "date": "2023-12-04", "gold22k": 5880, "gold24k": 6415, "silver": 81.5 },
+  { "date": "2024-01-08", "gold22k": 5780, "gold24k": 6305, "silver": 77.0 },
+  { "date": "2024-04-12", "gold22k": 6680, "gold24k": 7285, "silver": 89.0 },
+  { "date": "2024-07-24", "gold22k": 6350, "gold24k": 6925, "silver": 89.5 },
+  { "date": "2024-10-31", "gold22k": 7440, "gold24k": 8115, "silver": 106.0 },
+  { "date": "2024-12-31", "gold22k": 7240, "gold24k": 7900, "silver": 97.0 },
+  { "date": "2025-03-15", "gold22k": 8390, "gold24k": 9150, "silver": 110.0 },
+  { "date": "2025-06-15", "gold22k": 9890, "gold24k": 10790, "silver": 132.0 },
+  { "date": "2025-10-15", "gold22k": 12050, "gold24k": 13145, "silver": 180.0 },
+  { "date": "2025-12-31", "gold22k": 13800, "gold24k": 15050, "silver": 230.0 },
+  { "date": "2026-02-15", "gold22k": 14780, "gold24k": 16120, "silver": 254.0 },
+  { "date": "2026-08-24", "gold22k": 14950, "gold24k": 16300, "silver": 257.0 }
+];
+
+async function loadHistoricalRates() {
+  try {
+    const res = await fetch(`historical-rates.json?t=${Date.now()}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.rates && Array.isArray(data.rates) && data.rates.length > 0) {
+        historicalBullionData = data.rates;
+        return;
+      }
+    }
+  } catch (e) {
+    console.log('Using embedded fallback for historical rates');
+  }
+  historicalBullionData = FALLBACK_HISTORICAL_DATA;
+}
+
+function getHistoricalBullionRate(dateStr, metalType = 'GOLD') {
+  const data = (historicalBullionData && historicalBullionData.length > 0) ? historicalBullionData : FALLBACK_HISTORICAL_DATA;
+  if (!dateStr || data.length === 0) return null;
+
+  const targetTime = new Date(dateStr).getTime();
+  if (isNaN(targetTime)) return null;
+
+  const targetKey = metalType === 'SILVER' ? 'silver' : 'gold22k';
+
+  // Check exact match
+  const exact = data.find(d => d.date === dateStr);
+  if (exact) {
+    return { rate: exact[targetKey], exact: true, matchedDate: exact.date };
+  }
+
+  // Find bounding dates for interpolation
+  let prev = null;
+  let next = null;
+
+  for (let i = 0; i < data.length; i++) {
+    const itemTime = new Date(data[i].date).getTime();
+    if (itemTime <= targetTime) {
+      if (!prev || itemTime > new Date(prev.date).getTime()) {
+        prev = data[i];
+      }
+    }
+    if (itemTime >= targetTime) {
+      if (!next || itemTime < new Date(next.date).getTime()) {
+        next = data[i];
+      }
+    }
+  }
+
+  if (prev && !next) {
+    return { rate: prev[targetKey], exact: false, matchedDate: prev.date };
+  }
+  if (!prev && next) {
+    return { rate: next[targetKey], exact: false, matchedDate: next.date };
+  }
+  if (prev && next) {
+    const t0 = new Date(prev.date).getTime();
+    const t1 = new Date(next.date).getTime();
+    if (t0 === t1) {
+      return { rate: prev[targetKey], exact: true, matchedDate: prev.date };
+    }
+    const factor = (targetTime - t0) / (t1 - t0);
+    const r0 = prev[targetKey];
+    const r1 = next[targetKey];
+    const interpolatedRate = Math.round((r0 + factor * (r1 - r0)) * 10) / 10;
+    return {
+      rate: interpolatedRate,
+      exact: false,
+      isInterpolated: true,
+      prevDate: prev.date,
+      nextDate: next.date
+    };
+  }
+
+  return null;
+}
+
+function updateDateRateSuggestion(forceFill = false) {
+  const assetType = document.getElementById('asset-type-select')?.value;
+  if (assetType !== 'PRECIOUS_METALS') return;
+
+  const dateVal = document.getElementById('asset-date')?.value;
+  const metalType = document.getElementById('metal-type')?.value || 'GOLD';
+  const rateInput = document.getElementById('item-rate-bought');
+  const hintEl = document.getElementById('rate-suggestion-hint');
+  const dateIndicatorEl = document.getElementById('date-rate-indicator');
+
+  if (!dateVal) {
+    if (hintEl) hintEl.style.display = 'none';
+    if (dateIndicatorEl) dateIndicatorEl.style.display = 'none';
+    return;
+  }
+
+  const result = getHistoricalBullionRate(dateVal, metalType);
+  if (result && result.rate) {
+    const metalLabel = metalType === 'GOLD' ? '22K Gold' : 'Silver';
+    const rateFormatted = `₹${result.rate.toLocaleString('en-IN')}/g`;
+    const hintMsg = `⚡ Bangalore ${metalLabel} Benchmark (${dateVal}): ${rateFormatted}`;
+    
+    if (hintEl) {
+      hintEl.innerText = hintMsg;
+      hintEl.style.display = 'block';
+    }
+    if (dateIndicatorEl) {
+      dateIndicatorEl.innerText = `💡 ${metalLabel} rate on ${dateVal}: ${rateFormatted}`;
+      dateIndicatorEl.style.display = 'block';
+    }
+
+    if (forceFill || !rateInput.value || parseFloat(rateInput.value) <= 0) {
+      rateInput.value = result.rate;
+      if (forceFill) {
+        showToast(`⚡ Filled Bangalore ${metalLabel} rate: ${rateFormatted} for ${dateVal}`, 'info');
+      }
+    }
+  }
+}
+
 function resetForm() {
   document.getElementById('asset-form').reset();
   editingId = null;
-  document.getElementById('form-title').innerText = 'Add New Asset';
-  document.getElementById('submit-btn').innerText = '✨ Save to Portfolio';
+  document.getElementById('form-title').innerText = 'Add Asset';
+  document.getElementById('submit-btn').innerText = '✨ Save Asset to Portfolio';
   document.getElementById('cancel-btn').style.display = 'none';
   document.getElementById('asset-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('asset-type-select').value = 'PRECIOUS_METALS';
+  
+  const hintEl = document.getElementById('rate-suggestion-hint');
+  if (hintEl) { hintEl.innerText = ''; hintEl.style.display = 'none'; }
+  const dateIndicatorEl = document.getElementById('date-rate-indicator');
+  if (dateIndicatorEl) { dateIndicatorEl.innerText = ''; dateIndicatorEl.style.display = 'none'; }
+
   toggleFormFieldsets('PRECIOUS_METALS');
+  updateDateRateSuggestion(true);
 }
 
 function toggleFormFieldsets(type) {
-  document.getElementById('fields-metals').style.display = type === 'PRECIOUS_METALS' ? 'block' : 'none';
-  document.getElementById('fields-equity').style.display = type === 'EQUITY' ? 'block' : 'none';
-  document.getElementById('fields-realestate').style.display = type === 'REAL_ESTATE' ? 'block' : 'none';
-  document.getElementById('fields-cash').style.display = type === 'CASH_SAVINGS' ? 'block' : 'none';
+  const metalsEl = document.getElementById('fields-metals');
+  const equityEl = document.getElementById('fields-equity');
+  const realEstateEl = document.getElementById('fields-real-estate') || document.getElementById('fields-realestate');
+  const cashEl = document.getElementById('fields-cash');
+
+  if (metalsEl) metalsEl.style.display = type === 'PRECIOUS_METALS' ? 'block' : 'none';
+  if (equityEl) equityEl.style.display = type === 'EQUITY' ? 'block' : 'none';
+  if (realEstateEl) realEstateEl.style.display = type === 'REAL_ESTATE' ? 'block' : 'none';
+  if (cashEl) cashEl.style.display = type === 'CASH_SAVINGS' ? 'block' : 'none';
+
+  if (type === 'PRECIOUS_METALS') {
+    updateDateRateSuggestion(false);
+  } else {
+    const hintEl = document.getElementById('rate-suggestion-hint');
+    if (hintEl) hintEl.style.display = 'none';
+    const dateIndicatorEl = document.getElementById('date-rate-indicator');
+    if (dateIndicatorEl) dateIndicatorEl.style.display = 'none';
+  }
 }
 
 // -------------------------------------------------------------
@@ -943,13 +1115,31 @@ document.addEventListener('DOMContentLoaded', () => {
   // Clear any unauthenticated stale cache completely
   localStorage.removeItem('wealth_assets');
 
+  // Load historical bullion dataset
+  loadHistoricalRates().then(() => {
+    updateDateRateSuggestion(false);
+  });
+
   // Set default date
   const dateInput = document.getElementById('asset-date');
-  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+    dateInput.addEventListener('change', () => updateDateRateSuggestion(false));
+  }
 
   // Asset Type Select Handler
   document.getElementById('asset-type-select').addEventListener('change', (e) => {
     toggleFormFieldsets(e.target.value);
+  });
+
+  // Metal Type Handler
+  document.getElementById('metal-type')?.addEventListener('change', () => {
+    updateDateRateSuggestion(true);
+  });
+
+  // Fetch Date Rate Button
+  document.getElementById('btn-fetch-date-rate')?.addEventListener('click', () => {
+    updateDateRateSuggestion(true);
   });
 
   // Deduction suggestion for jewelry

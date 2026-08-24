@@ -7,11 +7,36 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=2.6.1">
+  <link rel="stylesheet" href="css/styles.css?v=2.8.0">
   <!-- Firebase SDK for Google Auth & Cloud Firestore Sync -->
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+  <!-- Immediate Inline Script for Form Fieldset Toggling -->
+  <script>
+    function toggleFormFieldsets(type) {
+      const metalsEl = document.getElementById('fields-metals');
+      const equityEl = document.getElementById('fields-equity');
+      const realEstateEl = document.getElementById('fields-real-estate') || document.getElementById('fields-realestate');
+      const cashEl = document.getElementById('fields-cash');
+
+      if (metalsEl) metalsEl.style.display = (type === 'PRECIOUS_METALS') ? 'block' : 'none';
+      if (equityEl) equityEl.style.display = (type === 'EQUITY') ? 'block' : 'none';
+      if (realEstateEl) realEstateEl.style.display = (type === 'REAL_ESTATE') ? 'block' : 'none';
+      if (cashEl) cashEl.style.display = (type === 'CASH_SAVINGS') ? 'block' : 'none';
+
+      if (typeof updateDateRateSuggestion === 'function') {
+        if (type === 'PRECIOUS_METALS') {
+          updateDateRateSuggestion(false);
+        } else {
+          const hintEl = document.getElementById('rate-suggestion-hint');
+          if (hintEl) hintEl.style.display = 'none';
+          const dateIndicatorEl = document.getElementById('date-rate-indicator');
+          if (dateIndicatorEl) dateIndicatorEl.style.display = 'none';
+        }
+      }
+    }
+  </script>
 </head>
 <body>
   <div class="container">
@@ -128,7 +153,7 @@
         <form id="asset-form">
           <div class="form-group">
             <label for="asset-type-select">Asset Class</label>
-            <select id="asset-type-select" required>
+            <select id="asset-type-select" onchange="toggleFormFieldsets(this.value)" required>
               <option value="PRECIOUS_METALS">🪙 Precious Metals (Gold / Silver)</option>
               <option value="EQUITY">📈 Equities &amp; Mutual Funds</option>
               <option value="REAL_ESTATE">🏡 Real Estate (Land / House)</option>
@@ -144,6 +169,7 @@
           <div class="form-group">
             <label for="asset-date">Purchase / Deposit Date</label>
             <input type="date" id="asset-date" required />
+            <div id="date-rate-indicator" style="display: none; font-size: 0.75rem; color: var(--gold-light); margin-top: 4px;"></div>
           </div>
 
           <!-- Dynamic Fieldset: Precious Metals -->
@@ -167,8 +193,12 @@
               <input type="number" id="item-grams" step="0.01" min="0.01" placeholder="e.g. 10.5" />
             </div>
             <div class="form-group">
-              <label for="item-rate-bought">Buy Rate (₹/g)</label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label for="item-rate-bought" style="margin-bottom: 0;">Buy Rate (₹/g)</label>
+                <button type="button" id="btn-fetch-date-rate" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.72rem; background: rgba(212, 175, 55, 0.12); border: 1px solid var(--gold-primary); color: var(--gold-light); cursor: pointer; border-radius: 4px;" title="Auto-fill official Bangalore benchmark rate for selected date">⚡ Fetch Date Rate</button>
+              </div>
               <input type="number" id="item-rate-bought" step="0.01" min="1" placeholder="e.g. 12500" />
+              <div id="rate-suggestion-hint" style="display: none; font-size: 0.75rem; color: var(--gold-light); margin-top: 4px;"></div>
             </div>
             <div class="form-group">
               <label for="item-deduction">Expected Deduction (%)</label>
@@ -354,6 +384,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=2.6.1"></script>
+  <script src="js/app.js?v=2.8.0"></script>
 </body>
 </html>
