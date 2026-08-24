@@ -729,9 +729,264 @@ function updateBulkActionBar() {
   }
 }
 
+function renderCategorySummaryBar() {
+  const bar = document.getElementById('category-summary-bar');
+  if (!bar) return;
+
+  if (!currentUser || !currentSummary || !currentSummary.items || currentSummary.items.length === 0) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+
+  const rates = currentSummary.rates || getLocalRates();
+  const allItems = currentSummary.items;
+
+  if (currentFilterType === 'PRECIOUS_METALS') {
+    const metalItems = allItems.filter(i => i.asset.assetType === 'PRECIOUS_METALS');
+    if (metalItems.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    let goldGrams = 0;
+    let goldInvested = 0;
+    let goldNetVal = 0;
+    let silverGrams = 0;
+    let silverInvested = 0;
+    let silverNetVal = 0;
+
+    metalItems.forEach(i => {
+      const a = i.asset;
+      if (a.metalType === 'GOLD') {
+        goldGrams += (a.grams || 0);
+        goldInvested += (a.investedAmount || 0);
+        goldNetVal += i.metrics.currentValue;
+      } else {
+        silverGrams += (a.grams || 0);
+        silverInvested += (a.investedAmount || 0);
+        silverNetVal += i.metrics.currentValue;
+      }
+    });
+
+    const goldGrossVal = goldGrams * rates.goldRate;
+    const goldGrossGain = goldGrossVal - goldInvested;
+    const goldGrossRoi = goldInvested > 0 ? (goldGrossGain / goldInvested) * 100 : 0;
+
+    const silverGrossVal = silverGrams * rates.silverRate;
+    const silverGrossGain = silverGrossVal - silverInvested;
+    const silverGrossRoi = silverInvested > 0 ? (silverGrossGain / silverInvested) * 100 : 0;
+
+    const totalBullionGross = goldGrossVal + silverGrossVal;
+    const totalBullionInvested = goldInvested + silverInvested;
+    const totalBullionGain = totalBullionGross - totalBullionInvested;
+    const totalBullionRoi = totalBullionInvested > 0 ? (totalBullionGain / totalBullionInvested) * 100 : 0;
+
+    const silverWeightStr = silverGrams >= 1000 
+      ? `${(silverGrams / 1000).toFixed(2)} kg (${silverGrams.toLocaleString()}g)` 
+      : `${silverGrams.toLocaleString()}g`;
+
+    bar.style.display = 'grid';
+    bar.innerHTML = `
+      <div class="summary-pill-card gold-card">
+        <div class="pill-header">
+          <span class="pill-title">🪙 Total Gold Holdings</span>
+          <span class="pill-badge">Spot: ₹${rates.goldRate.toLocaleString('en-IN')}/g</span>
+        </div>
+        <div class="pill-main-stat" style="color: var(--gold-light);">${goldGrams.toFixed(2)} grams</div>
+        <div class="pill-sub-stat">Gross Value: ${formatCurrency(goldGrossVal)}</div>
+        <div class="pill-footer">
+          Invested: ${formatCurrency(goldInvested)} • <strong class="${goldGrossGain >= 0 ? 'text-success' : 'text-danger'}">${goldGrossGain >= 0 ? '+' : ''}${formatCurrency(goldGrossGain)} (${goldGrossGain >= 0 ? '+' : ''}${goldGrossRoi.toFixed(1)}%)</strong>
+        </div>
+      </div>
+
+      <div class="summary-pill-card silver-card">
+        <div class="pill-header">
+          <span class="pill-title">🥈 Total Silver Holdings</span>
+          <span class="pill-badge">Spot: ₹${rates.silverRate.toLocaleString('en-IN')}/g</span>
+        </div>
+        <div class="pill-main-stat" style="color: #cbd5e1;">${silverWeightStr}</div>
+        <div class="pill-sub-stat">Gross Value: ${formatCurrency(silverGrossVal)}</div>
+        <div class="pill-footer">
+          Invested: ${formatCurrency(silverInvested)} • <strong class="${silverGrossGain >= 0 ? 'text-success' : 'text-danger'}">${silverGrossGain >= 0 ? '+' : ''}${formatCurrency(silverGrossGain)} (${silverGrossGain >= 0 ? '+' : ''}${silverGrossRoi.toFixed(1)}%)</strong>
+        </div>
+      </div>
+
+      <div class="summary-pill-card gold-card">
+        <div class="pill-header">
+          <span class="pill-title">✨ Combined Bullion Value</span>
+          <span class="pill-badge">${metalItems.length} Holdings</span>
+        </div>
+        <div class="pill-main-stat" style="color: #fff;">${formatCurrency(totalBullionGross)}</div>
+        <div class="pill-sub-stat">Pure Market Spot Value</div>
+        <div class="pill-footer">
+          Net Melt Value: ${formatCurrency(goldNetVal + silverNetVal)} • Capital: ${formatCurrency(totalBullionInvested)}
+        </div>
+      </div>
+    `;
+  } else if (currentFilterType === 'CASH_SAVINGS') {
+    const cashItems = allItems.filter(i => i.asset.assetType === 'CASH_SAVINGS');
+    if (cashItems.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    let totalPrincipal = 0;
+    let totalCurrentVal = 0;
+    let totalWeightedRate = 0;
+
+    cashItems.forEach(i => {
+      const a = i.asset;
+      const principal = a.investedAmount || 0;
+      totalPrincipal += principal;
+      totalCurrentVal += i.metrics.currentValue;
+      totalWeightedRate += (a.interestRatePct || 0) * principal;
+    });
+
+    const avgRate = totalPrincipal > 0 ? (totalWeightedRate / totalPrincipal) : 0;
+    const interestAccrued = totalCurrentVal - totalPrincipal;
+    const interestRoi = totalPrincipal > 0 ? (interestAccrued / totalPrincipal) * 100 : 0;
+
+    bar.style.display = 'grid';
+    bar.innerHTML = `
+      <div class="summary-pill-card cash-card">
+        <div class="pill-header">
+          <span class="pill-title">💰 Principal Capital</span>
+          <span class="pill-badge">${cashItems.length} FDs / Accounts</span>
+        </div>
+        <div class="pill-main-stat" style="color: #c084fc;">${formatCurrency(totalPrincipal)}</div>
+        <div class="pill-sub-stat">Total Initial Deposits</div>
+        <div class="pill-footer">Guaranteed Capital Reserves</div>
+      </div>
+
+      <div class="summary-pill-card cash-card">
+        <div class="pill-header">
+          <span class="pill-title">📈 Accrued Valuation</span>
+          <span class="pill-badge">+${formatCurrency(interestAccrued)} Interest</span>
+        </div>
+        <div class="pill-main-stat" style="color: #fff;">${formatCurrency(totalCurrentVal)}</div>
+        <div class="pill-sub-stat" style="color: var(--success);">${interestAccrued >= 0 ? '+' : ''}${formatCurrency(interestAccrued)} Total Gains</div>
+        <div class="pill-footer">Accrued ROI: +${interestRoi.toFixed(2)}%</div>
+      </div>
+
+      <div class="summary-pill-card cash-card">
+        <div class="pill-header">
+          <span class="pill-title">🏦 Average Portfolio Yield</span>
+          <span class="pill-badge">Compounding</span>
+        </div>
+        <div class="pill-main-stat" style="color: #e9d5ff;">${avgRate.toFixed(2)}% p.a.</div>
+        <div class="pill-sub-stat">Weighted Fixed Deposit Rate</div>
+        <div class="pill-footer">Liquid & High Safety Reserves</div>
+      </div>
+    `;
+  } else if (currentFilterType === 'REAL_ESTATE') {
+    const reItems = allItems.filter(i => i.asset.assetType === 'REAL_ESTATE');
+    if (reItems.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    let totalArea = 0;
+    let totalInvested = 0;
+    let totalEstimatedVal = 0;
+    let totalMonthlyRent = 0;
+
+    reItems.forEach(i => {
+      const a = i.asset;
+      totalArea += (a.areaSqFt || 0);
+      totalInvested += (a.investedAmount || 0);
+      totalEstimatedVal += i.metrics.currentValue;
+      totalMonthlyRent += (a.monthlyRentalIncome || 0);
+    });
+
+    const reGain = totalEstimatedVal - totalInvested;
+    const reRoi = totalInvested > 0 ? (reGain / totalInvested) * 100 : 0;
+
+    bar.style.display = 'grid';
+    bar.innerHTML = `
+      <div class="summary-pill-card realestate-card">
+        <div class="pill-header">
+          <span class="pill-title">🏡 Total Real Estate Area</span>
+          <span class="pill-badge">${reItems.length} Properties</span>
+        </div>
+        <div class="pill-main-stat" style="color: #86efac;">${totalArea.toLocaleString()} sq.ft</div>
+        <div class="pill-sub-stat">Total Real Estate Footprint</div>
+        <div class="pill-footer">Invested: ${formatCurrency(totalInvested)}</div>
+      </div>
+
+      <div class="summary-pill-card realestate-card">
+        <div class="pill-header">
+          <span class="pill-title">💎 Total Appraised Valuation</span>
+          <span class="pill-badge">${reGain >= 0 ? '+' : ''}${reRoi.toFixed(1)}% ROI</span>
+        </div>
+        <div class="pill-main-stat" style="color: #fff;">${formatCurrency(totalEstimatedVal)}</div>
+        <div class="pill-sub-stat" style="color: var(--success);">${reGain >= 0 ? '+' : ''}${formatCurrency(reGain)} Total Gain</div>
+        <div class="pill-footer">Current Market Value</div>
+      </div>
+
+      <div class="summary-pill-card realestate-card">
+        <div class="pill-header">
+          <span class="pill-title">💵 Monthly Rental Income</span>
+          <span class="pill-badge">Cashflow</span>
+        </div>
+        <div class="pill-main-stat" style="color: #4ade80;">${formatCurrency(totalMonthlyRent)}/mo</div>
+        <div class="pill-sub-stat">Annual: ${formatCurrency(totalMonthlyRent * 12)}/yr</div>
+        <div class="pill-footer">Passive Property Yield</div>
+      </div>
+    `;
+  } else if (currentFilterType === 'EQUITY') {
+    const eqItems = allItems.filter(i => i.asset.assetType === 'EQUITY');
+    if (eqItems.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    let totalInvested = 0;
+    let totalCurrentVal = 0;
+    eqItems.forEach(i => {
+      totalInvested += (i.asset.investedAmount || 0);
+      totalCurrentVal += i.metrics.currentValue;
+    });
+
+    const eqGain = totalCurrentVal - totalInvested;
+    const eqRoi = totalInvested > 0 ? (eqGain / totalInvested) * 100 : 0;
+
+    bar.style.display = 'grid';
+    bar.innerHTML = `
+      <div class="summary-pill-card equity-card">
+        <div class="pill-header">
+          <span class="pill-title">📈 Total Invested Capital</span>
+          <span class="pill-badge">${eqItems.length} Holdings</span>
+        </div>
+        <div class="pill-main-stat" style="color: #93c5fd;">${formatCurrency(totalInvested)}</div>
+        <div class="pill-sub-stat">Equities & Mutual Funds</div>
+        <div class="pill-footer">Initial Cost Basis</div>
+      </div>
+
+      <div class="summary-pill-card equity-card">
+        <div class="pill-header">
+          <span class="pill-title">📊 Current Portfolio Value</span>
+          <span class="pill-badge">Live Market</span>
+        </div>
+        <div class="pill-main-stat" style="color: #fff;">${formatCurrency(totalCurrentVal)}</div>
+        <div class="pill-sub-stat" style="color: ${eqGain >= 0 ? 'var(--success)' : 'var(--danger)'};">
+          ${eqGain >= 0 ? '+' : ''}${formatCurrency(eqGain)} (${eqGain >= 0 ? '+' : ''}${eqRoi.toFixed(2)}%)
+        </div>
+        <div class="pill-footer">Real-Time Valuation</div>
+      </div>
+    `;
+  } else {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+  }
+}
+
 function renderTable(items) {
   const tbody = document.getElementById('portfolio-list');
   tbody.innerHTML = '';
+
+  // Render collective category breakdown strip
+  renderCategorySummaryBar();
 
   // Strict check: if not signed in, show Locked Screen
   if (!currentUser) {

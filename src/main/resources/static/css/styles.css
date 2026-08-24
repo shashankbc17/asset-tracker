@@ -769,6 +769,101 @@ body {
   cursor: pointer;
 }
 
+/* Category Summary Bar / Collective Insights */
+.category-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.summary-pill-card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.summary-pill-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold-primary);
+}
+
+.summary-pill-card.gold-card {
+  border-left: 4px solid #d4af37;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.09), rgba(24, 34, 52, 0.7));
+}
+
+.summary-pill-card.silver-card {
+  border-left: 4px solid #a8b2d1;
+  background: linear-gradient(135deg, rgba(168, 178, 209, 0.09), rgba(24, 34, 52, 0.7));
+}
+
+.summary-pill-card.cash-card {
+  border-left: 4px solid #9b59b6;
+  background: linear-gradient(135deg, rgba(155, 89, 182, 0.09), rgba(24, 34, 52, 0.7));
+}
+
+.summary-pill-card.realestate-card {
+  border-left: 4px solid #2ecc71;
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.09), rgba(24, 34, 52, 0.7));
+}
+
+.summary-pill-card.equity-card {
+  border-left: 4px solid #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.09), rgba(24, 34, 52, 0.7));
+}
+
+.pill-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.pill-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.pill-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.pill-main-stat {
+  font-size: 1.28rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+  margin-bottom: 3px;
+}
+
+.pill-sub-stat {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  margin-bottom: 4px;
+}
+
+.pill-footer {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
 /* Table Container - Auto Fit Zero Scroll */
 .table-container {
   background: var(--surface);
