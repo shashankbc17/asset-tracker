@@ -79,7 +79,7 @@ function initFirebase() {
   let config = DEFAULT_FIREBASE_CONFIG;
   const savedConfig = localStorage.getItem('firebase_web_config');
   if (savedConfig) {
-    try { config = JSON.parse(savedConfig); } catch (e) {}
+    try { config = JSON.parse(savedConfig); } catch (e) { }
   }
 
   try {
@@ -195,12 +195,12 @@ function getLocalRates() {
   if (currentUser) {
     const saved = localStorage.getItem(`metals_rates_${currentUser.uid}`);
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch (e) { }
     }
   }
   const globalRates = localStorage.getItem('metals_rates_global');
   if (globalRates) {
-    try { return JSON.parse(globalRates); } catch (e) {}
+    try { return JSON.parse(globalRates); } catch (e) { }
   }
   return { id: 1, goldRate: 14950.0, silverRate: 257.0, lastUpdated: new Date().toISOString() };
 }
@@ -221,7 +221,7 @@ function getLocalAssets() {
   }
   const saved = localStorage.getItem(`wealth_assets_${currentUser.uid}`);
   if (saved) {
-    try { return JSON.parse(saved); } catch (e) {}
+    try { return JSON.parse(saved); } catch (e) { }
   }
   return [];
 }
@@ -278,7 +278,7 @@ function calculateSummary() {
       keyMetric = `${a.grams}g • Spot: ₹${spot}/g`;
       categoryBadge = a.categoryType === 'JEWELRY' ? 'Jewelry (Melt)' : 'Bullion Ingot / Coin';
       imagePath = isGold ? (a.categoryType === 'JEWELRY' ? 'images/gold-jewelry.jpg' : 'images/gold-bar.jpg')
-                         : (a.categoryType === 'JEWELRY' ? 'images/silver-jewelry.jpg' : 'images/silver-bar.jpg');
+        : (a.categoryType === 'JEWELRY' ? 'images/silver-jewelry.jpg' : 'images/silver-bar.jpg');
     } else if (a.assetType === 'EQUITY') {
       currentVal = (a.quantity || 0) * (a.currentPrice || a.buyPrice || 0);
       keyMetric = `${a.quantity} Qty @ CMP: ₹${a.currentPrice || 0}`;
@@ -306,7 +306,7 @@ function calculateSummary() {
 
     const profitLoss = currentVal - invested;
     const returnPct = invested > 0 ? (profitLoss / invested) * 100 : 0;
-    
+
     // CAGR calculation
     let cagrStr = '0.00% p.a.';
     if (a.purchaseDate && invested > 0 && currentVal > 0) {
@@ -782,8 +782,8 @@ function renderCategorySummaryBar() {
     const totalBullionGain = totalBullionGross - totalBullionInvested;
     const totalBullionRoi = totalBullionInvested > 0 ? (totalBullionGain / totalBullionInvested) * 100 : 0;
 
-    const silverWeightStr = silverGrams >= 1000 
-      ? `${(silverGrams / 1000).toFixed(2)} kg (${silverGrams.toLocaleString()}g)` 
+    const silverWeightStr = silverGrams >= 1000
+      ? `${(silverGrams / 1000).toFixed(2)} kg (${silverGrams.toLocaleString()}g)`
       : `${silverGrams.toLocaleString()}g`;
 
     bar.style.display = 'grid';
@@ -1207,20 +1207,18 @@ const FALLBACK_HISTORICAL_DATA = [
   { "date": "2025-02-01", "gold22k": 7850, "gold24k": 8560, "silver": 95.0 },
   { "date": "2025-03-01", "gold22k": 8250, "gold24k": 9000, "silver": 98.0 },
   { "date": "2025-04-15", "gold22k": 8680, "gold24k": 9470, "silver": 104.0 },
-  { "date": "2025-04-30", "gold22k": 8730, "gold24k": 9520, "silver": 105.0 },
   { "date": "2025-05-05", "gold22k": 8755, "gold24k": 9550, "silver": 106.0 },
-  { "date": "2025-05-31", "gold22k": 8840, "gold24k": 9640, "silver": 108.5 },
-  { "date": "2025-06-30", "gold22k": 9250, "gold24k": 10090, "silver": 115.0 },
-  { "date": "2025-07-31", "gold22k": 9380, "gold24k": 10230, "silver": 117.0 },
-  { "date": "2025-08-31", "gold22k": 9620, "gold24k": 10495, "silver": 122.5 },
-  { "date": "2025-09-24", "gold22k": 11757, "gold24k": 12825, "silver": 158.0 },
-  { "date": "2025-10-13", "gold22k": 12782, "gold24k": 13944, "silver": 178.0 },
-  { "date": "2025-10-31", "gold22k": 12950, "gold24k": 14125, "silver": 182.0 },
-  { "date": "2025-11-30", "gold22k": 13450, "gold24k": 14670, "silver": 210.0 },
-  { "date": "2025-12-19", "gold22k": 13657, "gold24k": 14898, "silver": 222.0 },
-  { "date": "2025-12-31", "gold22k": 13800, "gold24k": 15050, "silver": 230.0 },
-  { "date": "2026-01-15", "gold22k": 14120, "gold24k": 15400, "silver": 242.0 },
-  { "date": "2026-02-15", "gold22k": 14780, "gold24k": 16120, "silver": 254.0 },
+  { "date": "2025-06-15", "gold22k": 9150, "gold24k": 9980, "silver": 114.0 },
+  { "date": "2025-07-31", "gold22k": 9480, "gold24k": 10340, "silver": 120.0 },
+  { "date": "2025-08-31", "gold22k": 9850, "gold24k": 10745, "silver": 127.0 },
+  { "date": "2025-09-14", "gold22k": 10190, "gold24k": 11115, "silver": 134.0 },
+  { "date": "2025-10-15", "gold22k": 11200, "gold24k": 12220, "silver": 152.0 },
+  { "date": "2025-11-02", "gold22k": 11865, "gold24k": 12945, "silver": 165.0 },
+  { "date": "2025-11-30", "gold22k": 12150, "gold24k": 13255, "silver": 172.0 },
+  { "date": "2025-12-23", "gold22k": 12499, "gold24k": 13635, "silver": 185.0 },
+  { "date": "2025-12-31", "gold22k": 12650, "gold24k": 13800, "silver": 192.0 },
+  { "date": "2026-02-15", "gold22k": 13780, "gold24k": 15030, "silver": 225.0 },
+  { "date": "2026-05-01", "gold22k": 14450, "gold24k": 15760, "silver": 245.0 },
   { "date": "2026-08-24", "gold22k": 14950, "gold24k": 16300, "silver": 257.0 }
 ];
 
@@ -1322,7 +1320,7 @@ function updateDateRateSuggestion(forceFill = false) {
     const metalLabel = metalType === 'GOLD' ? '22K Gold' : 'Silver';
     const rateFormatted = `₹${result.rate.toLocaleString('en-IN')}/g`;
     const hintMsg = `⚡ Bangalore ${metalLabel} Benchmark (${dateVal}): ${rateFormatted}`;
-    
+
     if (hintEl) {
       hintEl.innerText = hintMsg;
       hintEl.style.display = 'block';
@@ -1349,7 +1347,7 @@ function resetForm() {
   document.getElementById('cancel-btn').style.display = 'none';
   document.getElementById('asset-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('asset-type-select').value = 'PRECIOUS_METALS';
-  
+
   const hintEl = document.getElementById('rate-suggestion-hint');
   if (hintEl) { hintEl.innerText = ''; hintEl.style.display = 'none'; }
   const dateIndicatorEl = document.getElementById('date-rate-indicator');
