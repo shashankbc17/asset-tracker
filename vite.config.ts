@@ -5,10 +5,10 @@ import react from '@vitejs/plugin-react';
 // Base path is controlled by VITE_BASE_PATH env var:
 //   GitHub Pages (staging):   VITE_BASE_PATH=/asset-tracker/
 //   Firebase Hosting (prod):  VITE_BASE_PATH=/  (or unset)
-//   Local dev:                VITE_BASE_PATH=/  (or unset)
+// Base path uses relative './' for bulletproof GitHub Pages and subpath resolution
 export default defineConfig({
   plugins: [react()],
-  base: process.env.VITE_BASE_PATH || '/',
+  base: './',
   server: {
     port: 5173,
     proxy: {

@@ -1,10 +1,4 @@
 import { Liability, LoanType } from '../types/portfolio';
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configure pdfjs worker to use CDN or local bundle
-if (typeof window !== 'undefined' && 'Worker' in window) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '3.11.174'}/pdf.worker.min.js`;
-}
 
 const STORAGE_API_KEY = 'gemini_loan_api_key';
 
@@ -42,6 +36,10 @@ function fileToBase64(file: File): Promise<string> {
 
 // Local In-Browser PDF Text Extractor using PDF.js (0 tokens, free)
 async function extractTextFromPdf(file: File): Promise<string> {
+  const pdfjsLib = await import('pdfjs-dist');
+  if (typeof window !== 'undefined' && 'Worker' in window && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '3.11.174'}/pdf.worker.min.js`;
+  }
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   let fullText = '';
