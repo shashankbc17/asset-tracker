@@ -256,7 +256,7 @@ export const App: React.FC = () => {
     setEditingLiability(null);
 
     if (user) {
-      savePortfolioToFirestore(user.uid, assets, rates, updatedLiabs);
+      await savePortfolioToFirestore(user.uid, assets, rates, updatedLiabs);
     }
   };
 

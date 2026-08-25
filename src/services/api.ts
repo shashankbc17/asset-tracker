@@ -115,7 +115,7 @@ export async function createOrUpdateLiability(liability: Liability, userId = 'de
 
   let savedItem: Liability;
   if (liability.id) {
-    list = list.map((item) => (item.id === liability.id ? { ...liability } : item));
+    list = list.map((item) => (String(item.id) === String(liability.id) ? { ...liability } : item));
     savedItem = liability;
   } else {
     savedItem = {
