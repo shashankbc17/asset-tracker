@@ -131,11 +131,12 @@ export async function deleteLiability(id: number | string, userId = 'default_use
     // Expected on static hosting
   }
 
-  const local = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`);
+  const storageKey = `${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`;
+  const local = localStorage.getItem(storageKey);
   if (local) {
     const list: Liability[] = JSON.parse(local);
-    const filtered = list.filter((l) => l.id !== id);
-    localStorage.setItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`, JSON.stringify(filtered));
+    const filtered = list.filter((l) => String(l.id) !== String(id));
+    localStorage.setItem(storageKey, JSON.stringify(filtered));
   }
   return true;
 }
@@ -327,7 +328,7 @@ export async function createOrUpdateAsset(asset: Asset, userId = 'default_user')
   return asset;
 }
 
-export async function deleteAsset(id: number, userId = 'default_user'): Promise<boolean> {
+export async function deleteAsset(id: number | string, userId = 'default_user'): Promise<boolean> {
   try {
     const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
     if (res.ok) return true;
@@ -335,11 +336,15 @@ export async function deleteAsset(id: number, userId = 'default_user'): Promise<
     // Expected on static hosting
   }
 
-  const local = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userId}`);
-  if (local) {
-    const list: Asset[] = JSON.parse(local);
-    const filtered = list.filter((a) => a.id !== id);
-    localStorage.setItem(`${LOCAL_STORAGE_KEY}_${userId}`, JSON.stringify(filtered));
+  const primaryKey = `${LOCAL_STORAGE_KEY}_${userId}`;
+  const legacyKey = `wealth_assets_${userId}`;
+  
+  const raw = localStorage.getItem(primaryKey) || localStorage.getItem(legacyKey);
+  if (raw) {
+    const list: Asset[] = JSON.parse(raw);
+    const filtered = list.filter((a) => String(a.id) !== String(id));
+    localStorage.setItem(primaryKey, JSON.stringify(filtered));
+    localStorage.setItem(legacyKey, JSON.stringify(filtered));
   }
   return true;
 }

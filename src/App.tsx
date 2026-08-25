@@ -93,7 +93,8 @@ export const App: React.FC = () => {
     }));
     setAssets(updatedAssets);
 
-    const effectiveLiabs = (currentLiabilities || liabilities).map((l) => ({
+    const targetLiabs = currentLiabilities !== undefined ? currentLiabilities : liabilities;
+    const effectiveLiabs = targetLiabs.map((l) => ({
       ...l,
       metrics: calculateLiabilityMetrics(l),
     }));
@@ -189,7 +190,7 @@ export const App: React.FC = () => {
     const saved = await createOrUpdateAsset({ ...assetData, userId }, userId);
     let updatedList: Asset[];
     if (editingAsset && editingAsset.id) {
-      updatedList = assets.map((a) => (a.id === editingAsset.id ? { ...saved, id: editingAsset.id } : a));
+      updatedList = assets.map((a) => (String(a.id) === String(editingAsset.id) ? { ...saved, id: editingAsset.id } : a));
     } else {
       updatedList = [saved, ...assets];
     }
@@ -201,13 +202,13 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleDeleteAsset = async (id: number) => {
+  const handleDeleteAsset = async (id: number | string) => {
     if (window.confirm('Are you sure you want to delete this asset holding?')) {
       const userId = user ? user.uid : 'default_user';
       await apiDeleteAsset(id, userId);
-      const remaining = assets.filter((a) => a.id !== id);
+      const remaining = assets.filter((a) => String(a.id) !== String(id));
       refreshPortfolio(remaining, rates, userId, liabilities);
-      if (selectedAssetForDetail?.id === id) {
+      if (selectedAssetForDetail && String(selectedAssetForDetail.id) === String(id)) {
         setIsDetailDrawerOpen(false);
         setSelectedAssetForDetail(null);
       }
@@ -239,7 +240,7 @@ export const App: React.FC = () => {
     const saved = await createOrUpdateLiability({ ...liabilityData, userId }, userId);
     let updatedLiabs: Liability[];
     if (editingLiability && editingLiability.id) {
-      updatedLiabs = liabilities.map((l) => (l.id === editingLiability.id ? { ...saved, id: editingLiability.id } : l));
+      updatedLiabs = liabilities.map((l) => (String(l.id) === String(editingLiability.id) ? { ...saved, id: editingLiability.id } : l));
     } else {
       updatedLiabs = [saved, ...liabilities];
     }
@@ -255,9 +256,9 @@ export const App: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this loan record?')) {
       const userId = user ? user.uid : 'default_user';
       await apiDeleteLiability(id, userId);
-      const remaining = liabilities.filter((l) => l.id !== id);
+      const remaining = liabilities.filter((l) => String(l.id) !== String(id));
       refreshPortfolio(assets, rates, userId, remaining);
-      if (selectedLiabilityForDetail?.id === id) {
+      if (selectedLiabilityForDetail && String(selectedLiabilityForDetail.id) === String(id)) {
         setIsLiabilityDetailOpen(false);
         setSelectedLiabilityForDetail(null);
       }
