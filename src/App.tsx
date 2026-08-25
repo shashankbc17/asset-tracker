@@ -195,7 +195,7 @@ export const App: React.FC = () => {
   // Asset CRUD Handlers
   const handleSaveAsset = async (assetData: Asset) => {
     const userId = user ? user.uid : 'default_user';
-    const saved = await createOrUpdateAsset({ ...assetData, userId }, userId);
+    const saved = await createOrUpdateAsset({ ...assetData, userId }, userId, rates);
     let updatedList: Asset[];
     if (editingAsset && editingAsset.id) {
       updatedList = assets.map((a) => (String(a.id) === String(editingAsset.id) ? { ...saved, id: editingAsset.id } : a));
@@ -206,7 +206,7 @@ export const App: React.FC = () => {
     setEditingAsset(null);
 
     if (user) {
-      savePortfolioToFirestore(user.uid, updatedList, rates, liabilities);
+      await savePortfolioToFirestore(user.uid, updatedList, rates, liabilities);
     }
   };
 

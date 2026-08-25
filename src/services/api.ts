@@ -297,7 +297,7 @@ export async function getAssets(userId = 'default_user', rates?: MetalRates): Pr
   return calculated;
 }
 
-export async function createOrUpdateAsset(asset: Asset, userId = 'default_user'): Promise<Asset> {
+export async function createOrUpdateAsset(asset: Asset, userId = 'default_user', rates?: MetalRates): Promise<Asset> {
   const payload = {
     ...asset,
     userId: asset.userId || userId,
@@ -313,29 +313,44 @@ export async function createOrUpdateAsset(asset: Asset, userId = 'default_user')
     });
     const ct = res.headers.get('content-type') || '';
     if (res.ok && ct.includes('json')) {
-      return await res.json();
+      const saved = await res.json();
+      const currentRates = rates || await fetchCurrentRates();
+      return {
+        ...saved,
+        metrics: calculateAssetMetrics(saved, currentRates),
+      };
     }
   } catch {
     // Expected on static hosting
   }
 
   // Local storage fallback
-  const local = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${userId}`);
+  const primaryKey = `${LOCAL_STORAGE_KEY}_${userId}`;
+  const legacyKey = `wealth_assets_${userId}`;
+  const local = localStorage.getItem(primaryKey) || localStorage.getItem(legacyKey);
   let list: Asset[] = local ? JSON.parse(local) : [];
 
+  let savedAsset: Asset;
   if (asset.id) {
-    list = list.map((item) => (item.id === asset.id ? { ...asset } : item));
+    list = list.map((item) => (String(item.id) === String(asset.id) ? { ...asset } : item));
+    savedAsset = asset;
   } else {
-    const newAsset = {
+    savedAsset = {
       ...asset,
       id: Date.now(),
       userId,
     };
-    list.unshift(newAsset);
+    list.unshift(savedAsset);
   }
 
-  localStorage.setItem(`${LOCAL_STORAGE_KEY}_${userId}`, JSON.stringify(list));
-  return asset;
+  localStorage.setItem(primaryKey, JSON.stringify(list));
+  localStorage.setItem(legacyKey, JSON.stringify(list));
+
+  const currentRates = rates || await fetchCurrentRates();
+  return {
+    ...savedAsset,
+    metrics: calculateAssetMetrics(savedAsset, currentRates),
+  };
 }
 
 export async function deleteAsset(id: number | string, userId = 'default_user'): Promise<boolean> {
