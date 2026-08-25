@@ -5,22 +5,28 @@ import { AllocationPills } from './components/AllocationPills';
 import { AssetList } from './components/AssetList';
 import { AssetModal } from './components/AssetModal';
 import { AssetDetailDrawer } from './components/AssetDetailDrawer';
+import { LiabilityCard } from './components/LiabilityCard';
+import { LiabilityModal } from './components/LiabilityModal';
+import { LiabilityDetailModal } from './components/LiabilityDetailModal';
 import { RatesModal } from './components/RatesModal';
 import { AnalyticsModal } from './components/AnalyticsModal';
 import { CsvModal } from './components/CsvModal';
-import { Asset, AssetType, MetalRates, NetWorthSummary } from './types/portfolio';
+import { Asset, AssetType, MetalRates, NetWorthSummary, Liability } from './types/portfolio';
 import { 
   getAssets, 
   createOrUpdateAsset, 
   deleteAsset as apiDeleteAsset, 
+  getLiabilities,
+  createOrUpdateLiability,
+  deleteLiability as apiDeleteLiability,
   syncLiveMarketRates, 
   updateManualRates 
 } from './services/api';
 import { fetchCurrentRates, loadHistoricalRates } from './services/ratesService';
 import { AuthService, UserProfile } from './services/auth';
 import { subscribeToUserPortfolio, savePortfolioToFirestore } from './services/firestoreService';
-import { calculateAssetMetrics, computePortfolioSummary } from './utils/calculations';
-import { Loader2 } from 'lucide-react';
+import { calculateAssetMetrics, computePortfolioSummary, calculateLiabilityMetrics, formatINR } from './utils/calculations';
+import { Loader2, Plus, Building2, Layers, AlertCircle } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(() => AuthService.getInitialUser());
@@ -34,6 +40,7 @@ export const App: React.FC = () => {
   });
 
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [liabilities, setLiabilities] = useState<Liability[]>([]);
   const [summary, setSummary] = useState<NetWorthSummary>({
     userId: 'default_user',
     totalInvested: 0,
@@ -41,29 +48,60 @@ export const App: React.FC = () => {
     totalGainLoss: 0,
     totalPercentageGainLoss: 0,
     allocations: [],
+    totalLiabilitiesValue: 0,
+    netWorth: 0,
+    totalMonthlyEmi: 0,
+    totalInterestPaidSoFar: 0,
+    totalFutureInterestPayable: 0,
+    debtToAssetRatio: 0,
+    activeLoansCount: 0,
   });
 
+  // Navigation View Toggle: 'ASSETS' vs 'LIABILITIES'
+  const [mainView, setMainView] = useState<'ASSETS' | 'LIABILITIES'>('ASSETS');
+
+  // Asset states
   const [selectedType, setSelectedType] = useState<AssetType | 'ALL'>('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [selectedAssetForDetail, setSelectedAssetForDetail] = useState<Asset | null>(null);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+
+  // Liability states
+  const [isAddLoanModalOpen, setIsAddLoanModalOpen] = useState(false);
+  const [editingLiability, setEditingLiability] = useState<Liability | null>(null);
+  const [selectedLiabilityForDetail, setSelectedLiabilityForDetail] = useState<Liability | null>(null);
+  const [isLiabilityDetailOpen, setIsLiabilityDetailOpen] = useState(false);
+
+  // Global modals
   const [isRatesModalOpen, setIsRatesModalOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [isSyncingRates, setIsSyncingRates] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Recalculate all assets and portfolio summary
-  const refreshPortfolio = useCallback((currentAssets: Asset[], currentRates: MetalRates, userId = 'default_user') => {
+  // Recalculate all assets, liabilities, and true net worth summary
+  const refreshPortfolio = useCallback((
+    currentAssets: Asset[], 
+    currentRates: MetalRates, 
+    userId = 'default_user',
+    currentLiabilities?: Liability[]
+  ) => {
     const updatedAssets = currentAssets.map((asset) => ({
       ...asset,
       metrics: calculateAssetMetrics(asset, currentRates),
     }));
     setAssets(updatedAssets);
-    const newSummary = computePortfolioSummary(updatedAssets, currentRates, userId);
+
+    const effectiveLiabs = (currentLiabilities || liabilities).map((l) => ({
+      ...l,
+      metrics: calculateLiabilityMetrics(l),
+    }));
+    setLiabilities(effectiveLiabs);
+
+    const newSummary = computePortfolioSummary(updatedAssets, currentRates, userId, effectiveLiabs);
     setSummary(newSummary);
-  }, []);
+  }, [liabilities]);
 
   // Listen to Auth State & Cloud Firestore Real-Time Sync
   useEffect(() => {
@@ -79,17 +117,17 @@ export const App: React.FC = () => {
 
       const uid = currentUser ? currentUser.uid : 'default_user';
 
-      // 1. Immediately hydrate from local cache / database so UI renders in 0ms
-      getAssets(uid, rates).then((loaded) => {
-        refreshPortfolio(loaded, rates, uid);
+      // 1. Hydrate assets and liabilities from local storage
+      Promise.all([getAssets(uid, rates), getLiabilities(uid)]).then(([loadedAssets, loadedLiabs]) => {
+        refreshPortfolio(loadedAssets, rates, uid, loadedLiabs);
       });
 
-      // 2. If authenticated, connect real-time Cloud Firestore sync in background
+      // 2. Connect Firestore sync in background
       if (currentUser) {
-        unsubscribeFirestore = subscribeToUserPortfolio(currentUser.uid, (cloudAssets, cloudRates) => {
-          if (cloudAssets && Array.isArray(cloudAssets) && cloudAssets.length > 0) {
+        unsubscribeFirestore = subscribeToUserPortfolio(currentUser.uid, (cloudAssets, cloudRates, cloudLiabilities) => {
+          if (cloudAssets && Array.isArray(cloudAssets)) {
             const effectiveRates = cloudRates || rates;
-            refreshPortfolio(cloudAssets, effectiveRates, currentUser.uid);
+            refreshPortfolio(cloudAssets, effectiveRates, currentUser.uid, cloudLiabilities);
           }
         });
       }
@@ -101,19 +139,22 @@ export const App: React.FC = () => {
     };
   }, [refreshPortfolio, rates]);
 
-  // Initial load: fetch rates & historical lookup
+  // Initial load
   useEffect(() => {
     async function init() {
       setIsLoading(true);
       try {
-        loadHistoricalRates(); // background pre-warm
+        loadHistoricalRates();
         const initialRates = await fetchCurrentRates();
         setRates(initialRates);
 
         const activeUser = AuthService.getInitialUser() || user;
         const currentUserId = activeUser ? activeUser.uid : 'default_user';
-        const loadedAssets = await getAssets(currentUserId, initialRates);
-        refreshPortfolio(loadedAssets, initialRates, currentUserId);
+        const [loadedAssets, loadedLiabs] = await Promise.all([
+          getAssets(currentUserId, initialRates),
+          getLiabilities(currentUserId),
+        ]);
+        refreshPortfolio(loadedAssets, initialRates, currentUserId, loadedLiabs);
       } catch (err) {
         console.error('Initialization error:', err);
       } finally {
@@ -121,7 +162,7 @@ export const App: React.FC = () => {
       }
     }
     init();
-  }, [refreshPortfolio]);
+  }, []);
 
   // Google Login / Logout Handlers
   const handleGoogleLogin = async () => {
@@ -135,8 +176,11 @@ export const App: React.FC = () => {
   const handleLogout = async () => {
     await AuthService.signOut();
     setUser(null);
-    const guestAssets = await getAssets('default_user', rates);
-    refreshPortfolio(guestAssets, rates, 'default_user');
+    const [guestAssets, guestLiabs] = await Promise.all([
+      getAssets('default_user', rates),
+      getLiabilities('default_user'),
+    ]);
+    refreshPortfolio(guestAssets, rates, 'default_user', guestLiabs);
   };
 
   // Asset CRUD Handlers
@@ -149,12 +193,11 @@ export const App: React.FC = () => {
     } else {
       updatedList = [saved, ...assets];
     }
-    refreshPortfolio(updatedList, rates, userId);
+    refreshPortfolio(updatedList, rates, userId, liabilities);
     setEditingAsset(null);
 
-    // Sync to Cloud Firestore if logged in
     if (user) {
-      savePortfolioToFirestore(user.uid, updatedList, rates);
+      savePortfolioToFirestore(user.uid, updatedList, rates, liabilities);
     }
   };
 
@@ -163,15 +206,14 @@ export const App: React.FC = () => {
       const userId = user ? user.uid : 'default_user';
       await apiDeleteAsset(id, userId);
       const remaining = assets.filter((a) => a.id !== id);
-      refreshPortfolio(remaining, rates, userId);
+      refreshPortfolio(remaining, rates, userId, liabilities);
       if (selectedAssetForDetail?.id === id) {
         setIsDetailDrawerOpen(false);
         setSelectedAssetForDetail(null);
       }
 
-      // Sync deletion to Cloud Firestore
       if (user) {
-        savePortfolioToFirestore(user.uid, remaining, rates);
+        savePortfolioToFirestore(user.uid, remaining, rates, liabilities);
       }
     }
   };
@@ -191,13 +233,63 @@ export const App: React.FC = () => {
     setIsAddModalOpen(true);
   };
 
+  // Liability / Loan CRUD Handlers
+  const handleSaveLiability = async (liabilityData: Liability) => {
+    const userId = user ? user.uid : 'default_user';
+    const saved = await createOrUpdateLiability({ ...liabilityData, userId }, userId);
+    let updatedLiabs: Liability[];
+    if (editingLiability && editingLiability.id) {
+      updatedLiabs = liabilities.map((l) => (l.id === editingLiability.id ? { ...saved, id: editingLiability.id } : l));
+    } else {
+      updatedLiabs = [saved, ...liabilities];
+    }
+    refreshPortfolio(assets, rates, userId, updatedLiabs);
+    setEditingLiability(null);
+
+    if (user) {
+      savePortfolioToFirestore(user.uid, assets, rates, updatedLiabs);
+    }
+  };
+
+  const handleDeleteLiability = async (id: number | string) => {
+    if (window.confirm('Are you sure you want to delete this loan record?')) {
+      const userId = user ? user.uid : 'default_user';
+      await apiDeleteLiability(id, userId);
+      const remaining = liabilities.filter((l) => l.id !== id);
+      refreshPortfolio(assets, rates, userId, remaining);
+      if (selectedLiabilityForDetail?.id === id) {
+        setIsLiabilityDetailOpen(false);
+        setSelectedLiabilityForDetail(null);
+      }
+
+      if (user) {
+        savePortfolioToFirestore(user.uid, assets, rates, remaining);
+      }
+    }
+  };
+
+  const handleSelectLiability = (liability: Liability) => {
+    setSelectedLiabilityForDetail(liability);
+    setIsLiabilityDetailOpen(true);
+  };
+
+  const handleEditLiability = (liability: Liability) => {
+    setEditingLiability(liability);
+    setIsAddLoanModalOpen(true);
+  };
+
+  const handleOpenAddLoan = () => {
+    setEditingLiability(null);
+    setIsAddLoanModalOpen(true);
+  };
+
   // Rates Handlers
   const handleUpdateRates = async (newRates: { gold: number; silver: number }) => {
     const updated = await updateManualRates(newRates);
     setRates(updated);
-    refreshPortfolio(assets, updated, user ? user.uid : 'default_user');
+    refreshPortfolio(assets, updated, user ? user.uid : 'default_user', liabilities);
     if (user) {
-      savePortfolioToFirestore(user.uid, assets, updated);
+      savePortfolioToFirestore(user.uid, assets, updated, liabilities);
     }
   };
 
@@ -206,9 +298,9 @@ export const App: React.FC = () => {
     try {
       const updated = await syncLiveMarketRates();
       setRates(updated);
-      refreshPortfolio(assets, updated, user ? user.uid : 'default_user');
+      refreshPortfolio(assets, updated, user ? user.uid : 'default_user', liabilities);
       if (user) {
-        savePortfolioToFirestore(user.uid, assets, updated);
+        savePortfolioToFirestore(user.uid, assets, updated, liabilities);
       }
     } catch (e) {
       console.warn('Sync failed:', e);
@@ -219,9 +311,9 @@ export const App: React.FC = () => {
 
   const handleImportSuccess = (importedAssets: Asset[]) => {
     const combined = [...importedAssets, ...assets];
-    refreshPortfolio(combined, rates, user ? user.uid : 'default_user');
+    refreshPortfolio(combined, rates, user ? user.uid : 'default_user', liabilities);
     if (user) {
-      savePortfolioToFirestore(user.uid, combined, rates);
+      savePortfolioToFirestore(user.uid, combined, rates, liabilities);
     }
   };
 
@@ -232,6 +324,7 @@ export const App: React.FC = () => {
       <Navbar
         rates={rates}
         onOpenAddModal={handleOpenAddModal}
+        onOpenAddLoan={handleOpenAddLoan}
         onOpenRatesModal={() => setIsRatesModalOpen(true)}
         onOpenAnalytics={() => setIsAnalyticsOpen(true)}
         onOpenCsvModal={() => setIsCsvModalOpen(true)}
@@ -256,26 +349,155 @@ export const App: React.FC = () => {
             <NetWorthHero
               summary={summary}
               totalAssetsCount={assets.length}
+              onOpenLiabilities={() => setMainView('LIABILITIES')}
             />
 
-            {/* 2. Asset Allocation Horizontal Category Carousel */}
-            <AllocationPills
-              selectedType={selectedType}
-              onSelectType={setSelectedType}
-              allocations={summary.allocations}
-              totalAssetsCount={assets.length}
-              totalCurrentValue={summary.totalCurrentValue}
-            />
+            {/* 2. Main View Segmented Toggle: Assets vs Liabilities */}
+            <div className="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-3 pt-2">
+              <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shadow-inner">
+                
+                {/* Assets View Button */}
+                <button
+                  onClick={() => setMainView('ASSETS')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                    mainView === 'ASSETS'
+                      ? 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>Assets &amp; Holdings</span>
+                  <span className="text-[11px] font-mono bg-slate-800/80 px-1.5 py-0.5 rounded-md text-slate-300 border border-slate-700">
+                    {assets.length}
+                  </span>
+                </button>
 
-            {/* 3. Assets List & Grid */}
-            <AssetList
-              assets={assets}
-              selectedType={selectedType}
-              onSelectAsset={handleSelectAsset}
-              onEditAsset={handleEditAsset}
-              onDeleteAsset={handleDeleteAsset}
-              onOpenAddModal={handleOpenAddModal}
-            />
+                {/* Liabilities View Button */}
+                <button
+                  onClick={() => setMainView('LIABILITIES')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                    mainView === 'LIABILITIES'
+                      ? 'bg-gradient-to-r from-rose-500/20 to-orange-500/20 text-rose-300 border border-rose-500/30 shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Loans &amp; Liabilities</span>
+                  <span className="text-[11px] font-mono bg-slate-800/80 px-1.5 py-0.5 rounded-md text-slate-300 border border-slate-700">
+                    {liabilities.length}
+                  </span>
+                </button>
+
+              </div>
+
+              {/* View-Specific Action Button */}
+              {mainView === 'LIABILITIES' ? (
+                <button
+                  onClick={handleOpenAddLoan}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white shadow-md shadow-rose-500/20 transition-all active:scale-95 shrink-0"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Add Loan</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleOpenAddModal}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all active:scale-95 shrink-0"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Add Holding</span>
+                </button>
+              )}
+            </div>
+
+            {/* 3. Render VIEW A: Assets or VIEW B: Liabilities */}
+            {mainView === 'ASSETS' ? (
+              <>
+                {/* Asset Allocation Horizontal Category Carousel */}
+                <AllocationPills
+                  selectedType={selectedType}
+                  onSelectType={setSelectedType}
+                  allocations={summary.allocations}
+                  totalAssetsCount={assets.length}
+                  totalCurrentValue={summary.totalCurrentValue}
+                />
+
+                {/* Assets List & Grid */}
+                <AssetList
+                  assets={assets}
+                  selectedType={selectedType}
+                  onSelectAsset={handleSelectAsset}
+                  onEditAsset={handleEditAsset}
+                  onDeleteAsset={handleDeleteAsset}
+                  onOpenAddModal={handleOpenAddModal}
+                />
+              </>
+            ) : (
+              /* LIABILITIES VIEW */
+              <div className="space-y-5">
+                
+                {/* Monthly Debt Outflow Banner */}
+                {liabilities.length > 0 && (
+                  <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                        <AlertCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-200">
+                          Total Monthly Repayment Obligation: <span className="text-white">{formatINR(summary.totalMonthlyEmi)}/mo</span>
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Total outstanding debt of {formatINR(summary.totalLiabilitiesValue)} reducing your true net worth
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs">
+                      <div className="bg-slate-950/80 px-3.5 py-2 rounded-xl border border-slate-800">
+                        <span className="text-slate-400 block text-[10px]">Interest Drag Incurred</span>
+                        <span className="font-bold text-rose-400">{formatINR(summary.totalInterestPaidSoFar)}</span>
+                      </div>
+                      <div className="bg-slate-950/80 px-3.5 py-2 rounded-xl border border-slate-800">
+                        <span className="text-slate-400 block text-[10px]">Future Interest Payable</span>
+                        <span className="font-bold text-amber-300">{formatINR(summary.totalFutureInterestPayable)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Liabilities Grid */}
+                {liabilities.length === 0 ? (
+                  <div className="text-center py-16 px-4 rounded-3xl bg-slate-900/40 border border-dashed border-slate-800">
+                    <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <h3 className="text-base font-bold text-slate-300">No Active Liabilities</h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
+                      You have zero outstanding loans logged. Add personal loans, home loans, or gold loans to track debt amortization and net equity.
+                    </p>
+                    <button
+                      onClick={handleOpenAddLoan}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-600 text-white shadow-lg transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add First Loan</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {liabilities.map((liability) => (
+                      <LiabilityCard
+                        key={liability.id}
+                        liability={liability}
+                        onSelect={handleSelectLiability}
+                        onEdit={handleEditLiability}
+                        onDelete={handleDeleteLiability}
+                      />
+                    ))}
+                  </div>
+                )}
+
+              </div>
+            )}
           </>
         )}
 
@@ -305,6 +527,29 @@ export const App: React.FC = () => {
         rates={rates}
       />
 
+      {/* Liability Modals */}
+      <LiabilityModal
+        isOpen={isAddLoanModalOpen}
+        onClose={() => {
+          setIsAddLoanModalOpen(false);
+          setEditingLiability(null);
+        }}
+        onSave={handleSaveLiability}
+        editingLiability={editingLiability}
+        assets={assets}
+      />
+
+      <LiabilityDetailModal
+        liability={selectedLiabilityForDetail}
+        isOpen={isLiabilityDetailOpen}
+        onClose={() => {
+          setIsLiabilityDetailOpen(false);
+          setSelectedLiabilityForDetail(null);
+        }}
+        onEdit={handleEditLiability}
+        assets={assets}
+      />
+
       <RatesModal
         isOpen={isRatesModalOpen}
         onClose={() => setIsRatesModalOpen(false)}
@@ -330,10 +575,11 @@ export const App: React.FC = () => {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-900/60 py-5 text-center text-xs text-slate-500">
-        <p>Asset Tracker • v4.0.1 • Built with React, Tailwind CSS &amp; Spring Boot</p>
+        <p>Asset Tracker • v4.1.0 • Built with React, Tailwind CSS &amp; Spring Boot</p>
       </footer>
 
     </div>
   );
 };
 export default App;
+

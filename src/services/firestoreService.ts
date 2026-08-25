@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, onSnapshot, setDoc, Firestore } from 'firebase/firestore';
-import { Asset, MetalRates } from '../types/portfolio';
+import { Asset, MetalRates, Liability } from '../types/portfolio';
 import { getActiveFirebaseConfig } from './firebaseConfig';
 
 let db: Firestore | null = null;
@@ -21,7 +21,7 @@ function getDb(): Firestore | null {
 
 export function subscribeToUserPortfolio(
   uid: string,
-  onUpdate: (assets: Asset[], rates?: MetalRates) => void
+  onUpdate: (assets: Asset[], rates?: MetalRates, liabilities?: Liability[]) => void
 ): () => void {
   if (firestoreUnsubscribe) {
     firestoreUnsubscribe();
@@ -40,19 +40,23 @@ export function subscribeToUserPortfolio(
           if (snapshot.exists()) {
             const data = snapshot.data();
             const assets = (data.assets && Array.isArray(data.assets)) ? data.assets : [];
+            const liabilities = (data.liabilities && Array.isArray(data.liabilities)) ? data.liabilities : [];
+            
             localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(assets));
+            localStorage.setItem(`wealth_liabilities_v1_${uid}`, JSON.stringify(liabilities));
             if (data.rates) {
               localStorage.setItem(`metals_rates_${uid}`, JSON.stringify(data.rates));
             }
-            onUpdate(assets, data.rates);
+            onUpdate(assets, data.rates, liabilities);
           } else {
             // Document doesn't exist yet on cloud
-            const cachedLocal = localStorage.getItem(`wealth_assets_${uid}`);
-            if (cachedLocal) {
+            const cachedAssets = localStorage.getItem(`wealth_assets_${uid}`);
+            const cachedLiabilities = localStorage.getItem(`wealth_liabilities_v1_${uid}`);
+            if (cachedAssets || cachedLiabilities) {
               try {
-                const initialAssets = JSON.parse(cachedLocal);
                 setDoc(docRef, {
-                  assets: initialAssets,
+                  assets: cachedAssets ? JSON.parse(cachedAssets) : [],
+                  liabilities: cachedLiabilities ? JSON.parse(cachedLiabilities) : [],
                   updatedAt: new Date().toISOString(),
                 }).catch(() => {});
               } catch {}
@@ -79,18 +83,28 @@ export function subscribeToUserPortfolio(
   };
 }
 
-export async function savePortfolioToFirestore(uid: string, assets: Asset[], rates?: MetalRates): Promise<void> {
+export async function savePortfolioToFirestore(
+  uid: string, 
+  assets: Asset[], 
+  rates?: MetalRates,
+  liabilities?: Liability[]
+): Promise<void> {
   const firestore = getDb();
   if (!firestore || !uid || uid === 'default_user') return;
 
   try {
     const docRef = doc(firestore, 'users', uid, 'portfolio', 'current');
-    await setDoc(docRef, {
+    const payload: Record<string, any> = {
       assets,
       rates: rates || null,
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    };
+    if (liabilities !== undefined) {
+      payload.liabilities = liabilities;
+    }
+    await setDoc(docRef, payload, { merge: true });
   } catch (err) {
     console.warn('Failed saving to Firestore (data is safe locally):', err);
   }
 }
+

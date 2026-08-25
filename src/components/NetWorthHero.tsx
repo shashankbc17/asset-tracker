@@ -1,15 +1,22 @@
 import React from 'react';
-import { TrendingUp, TrendingDown, ShieldCheck, Wallet, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, ShieldCheck, Wallet, Activity, Building2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { NetWorthSummary } from '../types/portfolio';
 import { formatINR, formatNumber } from '../utils/calculations';
 
 interface NetWorthHeroProps {
   summary: NetWorthSummary;
   totalAssetsCount: number;
+  onOpenLiabilities?: () => void;
 }
 
-export const NetWorthHero: React.FC<NetWorthHeroProps> = ({ summary, totalAssetsCount }) => {
+export const NetWorthHero: React.FC<NetWorthHeroProps> = ({ 
+  summary, 
+  totalAssetsCount,
+  onOpenLiabilities,
+}) => {
   const isPositive = summary.totalGainLoss >= 0;
+  const hasLiabilities = (summary.totalLiabilitiesValue || 0) > 0;
+  const debtRatio = summary.debtToAssetRatio || 0;
 
   // Colors for category distribution bar
   const categoryColors: Record<string, { bg: string; name: string }> = {
@@ -26,6 +33,9 @@ export const NetWorthHero: React.FC<NetWorthHeroProps> = ({ summary, totalAssets
       {/* Background ambient lighting */}
       <div className="absolute -top-24 -right-24 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      {hasLiabilities && (
+        <div className="absolute top-1/2 right-1/4 w-72 h-72 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
+      )}
 
       <div className="relative z-10">
         
@@ -37,13 +47,28 @@ export const NetWorthHero: React.FC<NetWorthHeroProps> = ({ summary, totalAssets
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
             </span>
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Consolidated Net Worth
+              {hasLiabilities ? 'Consolidated True Net Worth' : 'Portfolio Valuation'}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-700/50">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{totalAssetsCount} Tracked Holdings</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {hasLiabilities && (
+              <div className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border ${
+                debtRatio > 50 
+                  ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                  : debtRatio > 25
+                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                  : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+              }`}>
+                {debtRatio > 50 ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>Debt-to-Asset: {formatNumber(debtRatio, 1)}%</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400 bg-slate-800/60 px-3 py-1 rounded-full border border-slate-700/50">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{totalAssetsCount} Holdings {hasLiabilities ? `• ${summary.activeLoansCount} Loan` : ''}</span>
+            </div>
           </div>
         </div>
 
@@ -54,10 +79,10 @@ export const NetWorthHero: React.FC<NetWorthHeroProps> = ({ summary, totalAssets
           <div className="lg:col-span-7">
             <div className="text-xs text-slate-400 font-medium mb-1 flex items-center gap-1.5">
               <Wallet className="w-4 h-4 text-amber-400" />
-              <span>Current Valuation</span>
+              <span>{hasLiabilities ? 'True Net Worth (Assets − Debt)' : 'Total Asset Valuation'}</span>
             </div>
             <div className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-3">
-              {formatINR(summary.totalCurrentValue)}
+              {formatINR(hasLiabilities ? summary.netWorth : summary.totalCurrentValue)}
             </div>
 
             {/* Total Profit & Loss Pill */}
@@ -73,30 +98,82 @@ export const NetWorthHero: React.FC<NetWorthHeroProps> = ({ summary, totalAssets
               </div>
 
               <span className="text-xs text-slate-400">
-                All-time unrealized returns
+                Gross asset appreciation
               </span>
             </div>
           </div>
 
-          {/* Invested Breakdown Card (Right 5 cols) */}
-          <div className="lg:col-span-5 bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 sm:p-5">
-            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-              <span className="flex items-center gap-1">
-                <Activity className="w-3.5 h-3.5 text-sky-400" />
-                Total Invested Capital
-              </span>
-              <span className="font-semibold text-slate-200">100% Base</span>
-            </div>
-            <div className="text-xl sm:text-2xl font-bold text-slate-200 mb-3">
-              {formatINR(summary.totalInvested)}
-            </div>
+          {/* Breakdown Cards (Right 5 cols) */}
+          <div className="lg:col-span-5 space-y-3">
+            
+            {/* If liabilities exist, show 2-way breakdown: Gross Assets vs Debt */}
+            {hasLiabilities ? (
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Gross Assets */}
+                <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-3.5">
+                  <span className="text-[11px] text-slate-400 font-medium block mb-1">
+                    Gross Assets
+                  </span>
+                  <div className="text-base sm:text-lg font-bold text-slate-200">
+                    {formatINR(summary.totalCurrentValue)}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    Invested: {formatINR(summary.totalInvested)}
+                  </div>
+                </div>
 
-            <div className="text-[11px] text-slate-400 border-t border-slate-700/50 pt-2 flex items-center justify-between">
-              <span>Overall Multiple:</span>
-              <strong className="text-amber-300 font-mono">
-                {summary.totalInvested > 0 ? (summary.totalCurrentValue / summary.totalInvested).toFixed(2) : '1.00'}x
-              </strong>
-            </div>
+                {/* Total Liabilities / Debt */}
+                <div 
+                  onClick={onOpenLiabilities}
+                  className="bg-rose-950/20 hover:bg-rose-950/30 backdrop-blur-sm border border-rose-500/30 rounded-2xl p-3.5 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-rose-300 font-medium block mb-1">
+                      Total Liabilities
+                    </span>
+                    <Building2 className="w-3.5 h-3.5 text-rose-400" />
+                  </div>
+                  <div className="text-base sm:text-lg font-bold text-rose-400">
+                    -{formatINR(summary.totalLiabilitiesValue)}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-1">
+                    EMI: {formatINR(summary.totalMonthlyEmi)}/mo
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* If no liabilities, show original single invested card */
+              <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 sm:p-5">
+                <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+                  <span className="flex items-center gap-1">
+                    <Activity className="w-3.5 h-3.5 text-sky-400" />
+                    Total Invested Capital
+                  </span>
+                  <span className="font-semibold text-slate-200">100% Base</span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-slate-200 mb-3">
+                  {formatINR(summary.totalInvested)}
+                </div>
+
+                <div className="text-[11px] text-slate-400 border-t border-slate-700/50 pt-2 flex items-center justify-between">
+                  <span>Overall Multiple:</span>
+                  <strong className="text-amber-300 font-mono">
+                    {summary.totalInvested > 0 ? (summary.totalCurrentValue / summary.totalInvested).toFixed(2) : '1.00'}x
+                  </strong>
+                </div>
+              </div>
+            )}
+
+            {/* Interest Drag Mini Pill */}
+            {hasLiabilities && summary.totalInterestPaidSoFar > 0 && (
+              <div className="bg-slate-800/30 border border-slate-700/40 rounded-xl px-3 py-2 flex items-center justify-between text-xs text-slate-400">
+                <span className="text-[11px]">Cumulative Interest Drained:</span>
+                <span className="font-mono font-bold text-rose-300">
+                  {formatINR(summary.totalInterestPaidSoFar)}
+                </span>
+              </div>
+            )}
+
           </div>
 
         </div>
@@ -144,3 +221,4 @@ export const NetWorthHero: React.FC<NetWorthHeroProps> = ({ summary, totalAssets
     </div>
   );
 };
+

@@ -19,6 +19,7 @@ import { UserProfile } from '../services/auth';
 interface NavbarProps {
   rates: MetalRates;
   onOpenAddModal: () => void;
+  onOpenAddLoan?: () => void;
   onOpenRatesModal: () => void;
   onOpenAnalytics: () => void;
   onOpenCsvModal: () => void;
@@ -47,6 +48,7 @@ function getShortName(displayName?: string, email?: string): string {
 export const Navbar: React.FC<NavbarProps> = ({
   rates,
   onOpenAddModal,
+  onOpenAddLoan,
   onOpenRatesModal,
   onOpenAnalytics,
   onOpenCsvModal,
@@ -202,6 +204,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                         {/* Mobile Quick Action Items */}
                         <div className="py-1">
+                          {onOpenAddLoan && (
+                            <button
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                onOpenAddLoan();
+                              }}
+                              className="w-full text-left px-4 py-2 text-slate-200 hover:text-white hover:bg-slate-800/70 flex items-center gap-2.5 transition-colors font-medium"
+                            >
+                              <Plus className="w-4 h-4 text-rose-400 shrink-0" />
+                              <span>Add Loan / Liability</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => {
                               setIsUserMenuOpen(false);
@@ -279,6 +294,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <path fill="#34A853" d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.2L1.9 16.5C3.7 20.2 7.5 23.5 12 23.5z"/>
                 </svg>
                 <span className="hidden xs:inline">Sign In</span>
+              </button>
+            )}
+
+            {/* Add Loan button (desktop) */}
+            {onOpenAddLoan && (
+              <button
+                onClick={onOpenAddLoan}
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700/90 text-rose-300 border border-rose-500/30 active:scale-95 transition-all shrink-0"
+                title="Add Loan / Liability"
+              >
+                <Plus className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
+                <span>Add Loan</span>
               </button>
             )}
 

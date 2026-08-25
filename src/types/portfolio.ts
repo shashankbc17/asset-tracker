@@ -76,13 +76,86 @@ export interface AssetAllocation {
   assetCount: number;
 }
 
+export type LoanType = 
+  | 'PERSONAL' 
+  | 'HOME' 
+  | 'GOLD' 
+  | 'VEHICLE' 
+  | 'EDUCATION' 
+  | 'BUSINESS' 
+  | 'OTHER';
+
+export interface PrepaymentRecord {
+  id?: string;
+  date: string;
+  amount: number;
+  notes?: string;
+}
+
+export interface EmiScheduleItem {
+  monthIndex: number;
+  dueDate: string;
+  emiAmount: number;
+  principal: number;
+  interest: number;
+  outstandingPrincipal: number;
+  isPaid: boolean;
+}
+
+export interface LiabilityMetrics {
+  elapsedMonths: number;
+  emisPaid: number;
+  emisRemaining: number;
+  principalPaid: number;
+  principalOutstanding: number;
+  interestPaidSoFar: number;
+  totalInterestPayable: number;
+  remainingInterestPayable: number;
+  totalRepaymentAmount: number;
+  progressPct: number;
+  nextEmiDate: string;
+  daysUntilNextEmi: number;
+  monthlyEmi: number;
+  amortizationSchedule: EmiScheduleItem[];
+}
+
+export interface Liability {
+  id?: number | string;
+  userId?: string;
+  name: string;
+  lender: string;
+  accountNumber?: string;
+  loanType: LoanType;
+  sanctionDate: string;
+  firstEmiDate: string;
+  dueDayOfMonth: number;
+  principalAmount: number;
+  annualInterestRate: number;
+  tenureMonths: number;
+  monthlyEmi?: number;
+  processingFee?: number;
+  linkedAssetId?: number;
+  notes?: string;
+  prepayments?: PrepaymentRecord[];
+  metrics?: LiabilityMetrics;
+}
+
 export interface NetWorthSummary {
   userId: string;
   totalInvested: number;
-  totalCurrentValue: number;
+  totalCurrentValue: number; // Gross asset value
   totalGainLoss: number;
   totalPercentageGainLoss: number;
   allocations: AssetAllocation[];
+  
+  // Liabilities & True Net Worth
+  totalLiabilitiesValue: number; // Total outstanding debt
+  netWorth: number; // Total Assets - Total Liabilities
+  totalMonthlyEmi: number;
+  totalInterestPaidSoFar: number;
+  totalFutureInterestPayable: number;
+  debtToAssetRatio: number; // (Total Debt / Total Assets) * 100
+  activeLoansCount: number;
 }
 
 export interface MetalRates {
@@ -102,3 +175,4 @@ export interface HistoricalRateRecord {
   gold24k: number;
   silver: number;
 }
+

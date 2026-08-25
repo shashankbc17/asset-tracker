@@ -1,8 +1,139 @@
-import { Asset, MetalRates, NetWorthSummary } from '../types/portfolio';
-import { calculateAssetMetrics, computePortfolioSummary } from '../utils/calculations';
+import { Asset, MetalRates, NetWorthSummary, Liability } from '../types/portfolio';
+import { calculateAssetMetrics, computePortfolioSummary, calculateLiabilityMetrics } from '../utils/calculations';
 import { fetchCurrentRates } from './ratesService';
 
 const LOCAL_STORAGE_KEY = 'precious_metals_assets_v3';
+const LOCAL_STORAGE_LIABILITIES_KEY = 'wealth_liabilities_v1';
+
+export async function getLiabilities(userId = 'default_user'): Promise<Liability[]> {
+  try {
+    const res = await fetch(`/api/liabilities?userId=${encodeURIComponent(userId)}`);
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
+      const data: Liability[] = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((l) => ({
+          ...l,
+          metrics: calculateLiabilityMetrics(l),
+        }));
+      }
+    }
+  } catch {
+    // Expected on static hosting
+  }
+
+  // Check localStorage
+  const local = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`);
+  if (local !== null) {
+    try {
+      const parsed: Liability[] = JSON.parse(local);
+      if (Array.isArray(parsed)) {
+        return parsed.map((l) => ({
+          ...l,
+          metrics: calculateLiabilityMetrics(l),
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Default seeded liability: User's HDFC Bank Personal Loan
+  const defaultLiabilities: Liability[] = [
+    {
+      id: 1,
+      userId,
+      name: 'HDFC Personal Loan',
+      lender: 'HDFC Bank',
+      accountNumber: '165941165',
+      loanType: 'PERSONAL',
+      sanctionDate: '2025-10-16',
+      firstEmiDate: '2025-11-07',
+      dueDayOfMonth: 7,
+      principalAmount: 1522702,
+      annualInterestRate: 9.99,
+      tenureMonths: 36,
+      monthlyEmi: 49126,
+      processingFee: 8170,
+      notes: 'HDFC Bank Sanction #165941165 • ₹49,126 EMI on 7th of every month',
+    },
+  ];
+
+  const calculated = defaultLiabilities.map((l) => ({
+    ...l,
+    metrics: calculateLiabilityMetrics(l),
+  }));
+
+  localStorage.setItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`, JSON.stringify(defaultLiabilities));
+  return calculated;
+}
+
+export async function createOrUpdateLiability(liability: Liability, userId = 'default_user'): Promise<Liability> {
+  const payload = {
+    ...liability,
+    userId: liability.userId || userId,
+  };
+
+  try {
+    const url = liability.id ? `/api/liabilities/${liability.id}` : '/api/liabilities';
+    const method = liability.id ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.includes('json')) {
+      const saved = await res.json();
+      return {
+        ...saved,
+        metrics: calculateLiabilityMetrics(saved),
+      };
+    }
+  } catch {
+    // Expected on static hosting
+  }
+
+  // Local storage fallback
+  const local = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`);
+  let list: Liability[] = local ? JSON.parse(local) : [];
+
+  let savedItem: Liability;
+  if (liability.id) {
+    list = list.map((item) => (item.id === liability.id ? { ...liability } : item));
+    savedItem = liability;
+  } else {
+    savedItem = {
+      ...liability,
+      id: Date.now(),
+      userId,
+    };
+    list.unshift(savedItem);
+  }
+
+  localStorage.setItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`, JSON.stringify(list));
+  return {
+    ...savedItem,
+    metrics: calculateLiabilityMetrics(savedItem),
+  };
+}
+
+export async function deleteLiability(id: number | string, userId = 'default_user'): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/liabilities/${id}`, { method: 'DELETE' });
+    if (res.ok) return true;
+  } catch {
+    // Expected on static hosting
+  }
+
+  const local = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`);
+  if (local) {
+    const list: Liability[] = JSON.parse(local);
+    const filtered = list.filter((l) => l.id !== id);
+    localStorage.setItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${userId}`, JSON.stringify(filtered));
+  }
+  return true;
+}
 
 export async function getAssets(userId = 'default_user', rates?: MetalRates): Promise<Asset[]> {
   try {
@@ -208,7 +339,12 @@ export async function deleteAsset(id: number, userId = 'default_user'): Promise<
   return true;
 }
 
-export async function getNetWorthSummary(userId = 'default_user', assets?: Asset[], rates?: MetalRates): Promise<NetWorthSummary> {
+export async function getNetWorthSummary(
+  userId = 'default_user', 
+  assets?: Asset[], 
+  rates?: MetalRates,
+  liabilities?: Liability[]
+): Promise<NetWorthSummary> {
   try {
     const res = await fetch(`/api/assets/summary?userId=${encodeURIComponent(userId)}`);
     const ct = res.headers.get('content-type') || '';
@@ -221,7 +357,8 @@ export async function getNetWorthSummary(userId = 'default_user', assets?: Asset
 
   const currentRates = rates || await fetchCurrentRates();
   const currentAssets = assets || await getAssets(userId, currentRates);
-  return computePortfolioSummary(currentAssets, currentRates, userId);
+  const currentLiabilities = liabilities || await getLiabilities(userId);
+  return computePortfolioSummary(currentAssets, currentRates, userId, currentLiabilities);
 }
 
 export async function syncLiveMarketRates(): Promise<MetalRates> {
@@ -276,3 +413,4 @@ export async function updateManualRates(rates: { gold: number; silver: number })
     source: 'Custom User Rate',
   };
 }
+

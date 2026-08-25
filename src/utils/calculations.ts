@@ -1,4 +1,14 @@
-import { Asset, AssetMetrics, MetalRates, NetWorthSummary, AssetAllocation, AssetType } from '../types/portfolio';
+import { 
+  Asset, 
+  AssetMetrics, 
+  MetalRates, 
+  NetWorthSummary, 
+  AssetAllocation, 
+  AssetType,
+  Liability,
+  LiabilityMetrics,
+  EmiScheduleItem
+} from '../types/portfolio';
 
 export function formatINR(amount: number | undefined | null): string {
   if (amount === undefined || amount === null || isNaN(amount)) return '₹0';
@@ -11,6 +21,162 @@ export function formatINR(amount: number | undefined | null): string {
 export function formatNumber(amount: number | undefined | null, decimals = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return '0';
   return amount.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+export function calculateLiabilityMetrics(liability: Liability, refDate: Date = new Date()): LiabilityMetrics {
+  const principal = Math.max(0, liability.principalAmount || 0);
+  const annualRate = Math.max(0, liability.annualInterestRate || 0);
+  const tenure = Math.max(1, liability.tenureMonths || 36);
+  const dueDay = liability.dueDayOfMonth || 7;
+  
+  const monthlyRate = (annualRate / 12) / 100;
+  
+  // Calculate Standard EMI if not explicitly provided
+  let monthlyEmi = liability.monthlyEmi || 0;
+  if (!monthlyEmi || monthlyEmi <= 0) {
+    if (monthlyRate > 0) {
+      monthlyEmi = Math.round(
+        (principal * monthlyRate * Math.pow(1 + monthlyRate, tenure)) /
+        (Math.pow(1 + monthlyRate, tenure) - 1)
+      );
+    } else {
+      monthlyEmi = Math.round(principal / tenure);
+    }
+  }
+
+  // Parse start and first EMI dates
+  const firstEmiDate = liability.firstEmiDate ? new Date(liability.firstEmiDate) : new Date();
+  
+  let currentBalance = principal;
+  let totalInterestPayable = 0;
+  const schedule: EmiScheduleItem[] = [];
+
+  for (let i = 1; i <= tenure; i++) {
+    // Determine payment due date for month i
+    const itemDueDate = new Date(firstEmiDate.getFullYear(), firstEmiDate.getMonth() + (i - 1), dueDay);
+    // Set end of day for precise comparison
+    const dueTimeEnd = new Date(itemDueDate.getFullYear(), itemDueDate.getMonth(), itemDueDate.getDate(), 23, 59, 59).getTime();
+    
+    const interest = currentBalance * monthlyRate;
+    let principalPart = monthlyEmi - interest;
+    
+    if (i === tenure || principalPart > currentBalance) {
+      principalPart = currentBalance;
+    }
+    
+    currentBalance = Math.max(0, currentBalance - principalPart);
+    totalInterestPayable += interest;
+
+    const isPaid = dueTimeEnd <= refDate.getTime();
+
+    schedule.push({
+      monthIndex: i,
+      dueDate: itemDueDate.toISOString().split('T')[0],
+      emiAmount: monthlyEmi,
+      principal: principalPart,
+      interest: interest,
+      outstandingPrincipal: currentBalance,
+      isPaid,
+    });
+  }
+
+  const paidItems = schedule.filter((item) => item.isPaid);
+  const emisPaid = paidItems.length;
+  const emisRemaining = Math.max(0, tenure - emisPaid);
+  
+  const principalPaid = paidItems.reduce((sum, item) => sum + item.principal, 0);
+  const interestPaidSoFar = paidItems.reduce((sum, item) => sum + item.interest, 0);
+  const principalOutstanding = emisPaid >= tenure ? 0 : (paidItems.length > 0 ? paidItems[paidItems.length - 1].outstandingPrincipal : principal);
+  const remainingInterestPayable = Math.max(0, totalInterestPayable - interestPaidSoFar);
+  const totalRepaymentAmount = principal + totalInterestPayable;
+  const progressPct = principal > 0 ? Math.min(100, (principalPaid / principal) * 100) : 100;
+
+  const nextUpcoming = schedule.find((item) => !item.isPaid);
+  const nextEmiDate = nextUpcoming ? nextUpcoming.dueDate : 'Loan Completed';
+  
+  let daysUntilNextEmi = 0;
+  if (nextUpcoming) {
+    const nextDueObj = new Date(nextUpcoming.dueDate);
+    const diffMs = nextDueObj.getTime() - refDate.getTime();
+    daysUntilNextEmi = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  }
+
+  return {
+    elapsedMonths: emisPaid,
+    emisPaid,
+    emisRemaining,
+    principalPaid,
+    principalOutstanding,
+    interestPaidSoFar,
+    totalInterestPayable,
+    remainingInterestPayable,
+    totalRepaymentAmount,
+    progressPct,
+    nextEmiDate,
+    daysUntilNextEmi,
+    monthlyEmi,
+    amortizationSchedule: schedule,
+  };
+}
+
+export function simulatePrepayment(
+  liability: Liability,
+  prepaymentAmount: number,
+  refDate: Date = new Date()
+): {
+  newTenureMonths: number;
+  monthsSaved: number;
+  interestSaved: number;
+  newRemainingInterest: number;
+} {
+  const currentMetrics = liability.metrics || calculateLiabilityMetrics(liability, refDate);
+  const currentBalance = currentMetrics.principalOutstanding;
+  if (prepaymentAmount <= 0 || currentBalance <= 0) {
+    return {
+      newTenureMonths: currentMetrics.emisRemaining,
+      monthsSaved: 0,
+      interestSaved: 0,
+      newRemainingInterest: currentMetrics.remainingInterestPayable,
+    };
+  }
+
+  const effectiveBalance = Math.max(0, currentBalance - prepaymentAmount);
+  if (effectiveBalance <= 0) {
+    return {
+      newTenureMonths: 0,
+      monthsSaved: currentMetrics.emisRemaining,
+      interestSaved: currentMetrics.remainingInterestPayable,
+      newRemainingInterest: 0,
+    };
+  }
+
+  const monthlyRate = ((liability.annualInterestRate || 9.99) / 12) / 100;
+  const monthlyEmi = currentMetrics.monthlyEmi;
+
+  let balance = effectiveBalance;
+  let newInterestTotal = 0;
+  let newMonthsCount = 0;
+
+  while (balance > 0 && newMonthsCount < 600) {
+    newMonthsCount++;
+    const interest = balance * monthlyRate;
+    let principal = monthlyEmi - interest;
+    if (principal > balance || principal <= 0) {
+      principal = balance;
+    }
+    balance = Math.max(0, balance - principal);
+    newInterestTotal += interest;
+  }
+
+  const monthsSaved = Math.max(0, currentMetrics.emisRemaining - newMonthsCount);
+  const interestSaved = Math.max(0, currentMetrics.remainingInterestPayable - newInterestTotal);
+
+  return {
+    newTenureMonths: newMonthsCount,
+    monthsSaved,
+    interestSaved,
+    newRemainingInterest: newInterestTotal,
+  };
 }
 
 export function calculateAssetMetrics(asset: Asset, rates: MetalRates, refDate: Date = new Date()): AssetMetrics {
@@ -151,7 +317,12 @@ export function calculateAssetMetrics(asset: Asset, rates: MetalRates, refDate: 
   };
 }
 
-export function computePortfolioSummary(assets: Asset[], rates: MetalRates, userId = 'default_user'): NetWorthSummary {
+export function computePortfolioSummary(
+  assets: Asset[], 
+  rates: MetalRates, 
+  userId = 'default_user',
+  liabilities: Liability[] = []
+): NetWorthSummary {
   let totalInvested = 0;
   let totalCurrentValue = 0;
 
@@ -186,6 +357,29 @@ export function computePortfolioSummary(assets: Asset[], rates: MetalRates, user
     assetCount: data.count,
   }));
 
+  // Liabilities Calculations
+  let totalLiabilitiesValue = 0;
+  let totalMonthlyEmi = 0;
+  let totalInterestPaidSoFar = 0;
+  let totalFutureInterestPayable = 0;
+  let activeLoansCount = 0;
+
+  liabilities.forEach((liability) => {
+    const metrics = liability.metrics || calculateLiabilityMetrics(liability);
+    totalLiabilitiesValue += metrics.principalOutstanding;
+    totalInterestPaidSoFar += metrics.interestPaidSoFar;
+    totalFutureInterestPayable += metrics.remainingInterestPayable;
+    if (metrics.emisRemaining > 0) {
+      totalMonthlyEmi += metrics.monthlyEmi;
+      activeLoansCount += 1;
+    }
+  });
+
+  const netWorth = totalCurrentValue - totalLiabilitiesValue;
+  const debtToAssetRatio = totalCurrentValue > 0 
+    ? (totalLiabilitiesValue / totalCurrentValue) * 100 
+    : (totalLiabilitiesValue > 0 ? 100 : 0);
+
   return {
     userId,
     totalInvested,
@@ -193,5 +387,13 @@ export function computePortfolioSummary(assets: Asset[], rates: MetalRates, user
     totalGainLoss,
     totalPercentageGainLoss,
     allocations,
+    totalLiabilitiesValue,
+    netWorth,
+    totalMonthlyEmi,
+    totalInterestPaidSoFar,
+    totalFutureInterestPayable,
+    debtToAssetRatio,
+    activeLoansCount,
   };
 }
+
