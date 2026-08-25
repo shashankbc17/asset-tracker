@@ -405,21 +405,22 @@ export const App: React.FC = () => {
             />
 
             {/* 2. Main View Segmented Toggle: Assets vs Liabilities */}
-            <div className="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-3 pt-2">
-              <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shadow-inner">
+            <div className="flex items-center justify-between gap-2 sm:gap-3 border-b border-slate-800/80 pb-3 pt-2">
+              <div className="flex-1 sm:flex-initial flex items-center gap-1 sm:gap-2 bg-slate-900/90 p-1 sm:p-1.5 rounded-2xl border border-slate-800 shadow-inner">
                 
                 {/* Assets View Button */}
                 <button
                   onClick={() => setMainView('ASSETS')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                     mainView === 'ASSETS'
                       ? 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 shadow-md'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Layers className="w-4 h-4" />
-                  <span>Assets &amp; Holdings</span>
-                  <span className="text-[11px] font-mono bg-slate-800/80 px-1.5 py-0.5 rounded-md text-slate-300 border border-slate-700">
+                  <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="hidden sm:inline">Assets &amp; Holdings</span>
+                  <span className="sm:hidden">Assets</span>
+                  <span className="text-[10px] sm:text-[11px] font-mono bg-slate-800/80 px-1.5 py-0.5 rounded-md text-slate-300 border border-slate-700">
                     {assets.length}
                   </span>
                 </button>
@@ -427,15 +428,16 @@ export const App: React.FC = () => {
                 {/* Liabilities View Button */}
                 <button
                   onClick={() => setMainView('LIABILITIES')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                  className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                     mainView === 'LIABILITIES'
                       ? 'bg-gradient-to-r from-rose-500/20 to-orange-500/20 text-rose-300 border border-rose-500/30 shadow-md'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Building2 className="w-4 h-4" />
-                  <span>Loans &amp; Liabilities</span>
-                  <span className="text-[11px] font-mono bg-slate-800/80 px-1.5 py-0.5 rounded-md text-slate-300 border border-slate-700">
+                  <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="hidden sm:inline">Loans &amp; Liabilities</span>
+                  <span className="sm:hidden">Loans</span>
+                  <span className="text-[10px] sm:text-[11px] font-mono bg-slate-800/80 px-1.5 py-0.5 rounded-md text-slate-300 border border-slate-700">
                     {liabilities.length}
                   </span>
                 </button>
@@ -446,18 +448,19 @@ export const App: React.FC = () => {
               {mainView === 'LIABILITIES' ? (
                 <button
                   onClick={handleOpenAddLoan}
-                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white shadow-md shadow-rose-500/20 transition-all active:scale-95 shrink-0"
+                  className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white shadow-md shadow-rose-500/20 transition-all active:scale-95 shrink-0"
                 >
-                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
                   <span>Add Loan</span>
                 </button>
               ) : (
                 <button
                   onClick={handleOpenAddModal}
-                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all active:scale-95 shrink-0"
+                  className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all active:scale-95 shrink-0"
                 >
-                  <Plus className="w-4 h-4 stroke-[3]" />
-                  <span>Add Holding</span>
+                  <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+                  <span className="hidden sm:inline">Add Holding</span>
+                  <span className="sm:hidden">Add Asset</span>
                 </button>
               )}
             </div>

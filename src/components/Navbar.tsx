@@ -202,17 +202,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </div>
                         </div>
 
-                        {/* Mobile Quick Action Items */}
+                        {/* Mobile & Quick Action Items */}
                         <div className="py-1">
+                          <button
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              onOpenAddModal();
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 flex items-center gap-2.5 transition-colors font-bold border-b border-slate-800/80"
+                          >
+                            <Plus className="w-4 h-4 text-amber-400 stroke-[3] shrink-0" />
+                            <span>Add Asset / Holding</span>
+                          </button>
+
                           {onOpenAddLoan && (
                             <button
                               onClick={() => {
                                 setIsUserMenuOpen(false);
                                 onOpenAddLoan();
                               }}
-                              className="w-full text-left px-4 py-2 text-slate-200 hover:text-white hover:bg-slate-800/70 flex items-center gap-2.5 transition-colors font-medium"
+                              className="w-full text-left px-4 py-2.5 text-rose-300 hover:text-rose-200 hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors font-bold border-b border-slate-800/80"
                             >
-                              <Plus className="w-4 h-4 text-rose-400 shrink-0" />
+                              <Plus className="w-4 h-4 text-rose-400 stroke-[3] shrink-0" />
                               <span>Add Loan / Liability</span>
                             </button>
                           )}
@@ -284,7 +295,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 onClick={onLogin}
-                className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-all shrink-0 active:scale-95 shadow-sm"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-all shrink-0 active:scale-95 shadow-sm h-9 sm:h-10"
                 title="Sign in with Google to sync across devices"
               >
                 <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
@@ -297,22 +308,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Add Loan button (desktop) */}
+            {/* Add Loan button (Desktop only, matched size) */}
             {onOpenAddLoan && (
               <button
                 onClick={onOpenAddLoan}
-                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700/90 text-rose-300 border border-rose-500/30 active:scale-95 transition-all shrink-0"
+                className="hidden sm:flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-slate-800 hover:bg-slate-700/90 text-rose-300 border border-rose-500/30 active:scale-95 transition-all shrink-0 h-9 sm:h-10"
                 title="Add Loan / Liability"
               >
-                <Plus className="w-3.5 h-3.5 text-rose-400 stroke-[2.5]" />
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-400 stroke-[2.5]" />
                 <span>Add Loan</span>
               </button>
             )}
 
-            {/* Main Add Asset CTA Button */}
+            {/* Main Add Asset CTA Button (Desktop only, matched size) */}
             <button
               onClick={onOpenAddModal}
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95 transition-all shrink-0"
+              className="hidden sm:flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95 transition-all shrink-0 h-9 sm:h-10"
             >
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
               <span>Add Asset</span>
