@@ -80,31 +80,38 @@ export const App: React.FC = () => {
   const [isSyncingRates, setIsSyncingRates] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Recalculate all assets, liabilities, and true net worth summary
+  // Keep a stable ref to rates to avoid re-triggering effects
+  const ratesRef = React.useRef(rates);
+  ratesRef.current = rates;
+
+  // Recalculate all assets, liabilities, and true net worth summary (100% stable callback)
   const refreshPortfolio = useCallback((
     currentAssets: Asset[], 
-    currentRates: MetalRates, 
+    currentRates?: MetalRates, 
     userId = 'default_user',
     currentLiabilities?: Liability[]
   ) => {
+    const activeRates = currentRates || ratesRef.current;
     const updatedAssets = currentAssets.map((asset) => ({
       ...asset,
-      metrics: calculateAssetMetrics(asset, currentRates),
+      metrics: calculateAssetMetrics(asset, activeRates),
     }));
     setAssets(updatedAssets);
 
-    const targetLiabs = currentLiabilities !== undefined ? currentLiabilities : liabilities;
-    const effectiveLiabs = targetLiabs.map((l) => ({
-      ...l,
-      metrics: calculateLiabilityMetrics(l),
-    }));
-    setLiabilities(effectiveLiabs);
+    setLiabilities((prevLiabs) => {
+      const targetLiabs = currentLiabilities !== undefined ? currentLiabilities : prevLiabs;
+      const effectiveLiabs = targetLiabs.map((l) => ({
+        ...l,
+        metrics: calculateLiabilityMetrics(l),
+      }));
 
-    const newSummary = computePortfolioSummary(updatedAssets, currentRates, userId, effectiveLiabs);
-    setSummary(newSummary);
-  }, [liabilities]);
+      const newSummary = computePortfolioSummary(updatedAssets, activeRates, userId, effectiveLiabs);
+      setSummary(newSummary);
+      return effectiveLiabs;
+    });
+  }, []);
 
-  // Listen to Auth State & Cloud Firestore Real-Time Sync
+  // Listen to Auth State & Cloud Firestore Real-Time Sync ONCE
   useEffect(() => {
     let unsubscribeFirestore: (() => void) | null = null;
 
@@ -119,15 +126,15 @@ export const App: React.FC = () => {
       const uid = currentUser ? currentUser.uid : 'default_user';
 
       // 1. Hydrate assets and liabilities from local storage
-      Promise.all([getAssets(uid, rates), getLiabilities(uid)]).then(([loadedAssets, loadedLiabs]) => {
-        refreshPortfolio(loadedAssets, rates, uid, loadedLiabs);
+      Promise.all([getAssets(uid, ratesRef.current), getLiabilities(uid)]).then(([loadedAssets, loadedLiabs]) => {
+        refreshPortfolio(loadedAssets, ratesRef.current, uid, loadedLiabs);
       });
 
       // 2. Connect Firestore sync in background
       if (currentUser) {
         unsubscribeFirestore = subscribeToUserPortfolio(currentUser.uid, (cloudAssets, cloudRates, cloudLiabilities) => {
           if (cloudAssets && Array.isArray(cloudAssets)) {
-            const effectiveRates = cloudRates || rates;
+            const effectiveRates = cloudRates || ratesRef.current;
             refreshPortfolio(cloudAssets, effectiveRates, currentUser.uid, cloudLiabilities);
           }
         });
@@ -138,7 +145,7 @@ export const App: React.FC = () => {
       unsubscribeAuth();
       if (unsubscribeFirestore) unsubscribeFirestore();
     };
-  }, [refreshPortfolio, rates]);
+  }, [refreshPortfolio]);
 
   // Initial load
   useEffect(() => {
@@ -148,8 +155,9 @@ export const App: React.FC = () => {
         loadHistoricalRates();
         const initialRates = await fetchCurrentRates();
         setRates(initialRates);
+        ratesRef.current = initialRates;
 
-        const activeUser = AuthService.getInitialUser() || user;
+        const activeUser = AuthService.getInitialUser();
         const currentUserId = activeUser ? activeUser.uid : 'default_user';
         const [loadedAssets, loadedLiabs] = await Promise.all([
           getAssets(currentUserId, initialRates),
@@ -163,7 +171,7 @@ export const App: React.FC = () => {
       }
     }
     init();
-  }, []);
+  }, [refreshPortfolio]);
 
   // Google Login / Logout Handlers
   const handleGoogleLogin = async () => {
