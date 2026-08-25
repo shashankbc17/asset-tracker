@@ -574,9 +574,11 @@ export const App: React.FC = () => {
         onImportSuccess={handleImportSuccess}
       />
 
-      {/* Footer */}
+      {/* Footer with Live Build & Git Commit Hash */}
       <footer className="border-t border-slate-800/80 bg-slate-900/60 py-5 text-center text-xs text-slate-500">
-        <p>Asset Tracker • v4.1.0 • Built with React, Tailwind CSS &amp; Spring Boot</p>
+        <p>
+          Asset Tracker • v4.1.0 (Commit: <span className="font-mono text-amber-400 font-semibold">{__APP_GIT_COMMIT__}</span>) • Built with React, Tailwind CSS &amp; Spring Boot
+        </p>
       </footer>
 
     </div>

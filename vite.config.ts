@@ -1,14 +1,34 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { execSync } from 'child_process';
 
-// https://vitejs.dev/config/
-// Base path is controlled by VITE_BASE_PATH env var:
-//   GitHub Pages (staging):   VITE_BASE_PATH=/asset-tracker/
-//   Firebase Hosting (prod):  VITE_BASE_PATH=/  (or unset)
-// Base path uses relative './' for bulletproof GitHub Pages and subpath resolution
+let commitHash = 'dev';
+try {
+  commitHash = execSync('git rev-parse --short HEAD').toString().trim();
+} catch {
+  // fallback
+}
+
+const buildTime = new Date().toISOString();
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'html-transform-git-commit',
+      transformIndexHtml(html) {
+        return html.replace(
+          '<head>',
+          `<head>\n  <meta name="git-commit" content="${commitHash}" />\n  <meta name="build-time" content="${buildTime}" />`
+        );
+      },
+    },
+  ],
   base: './',
+  define: {
+    __APP_GIT_COMMIT__: JSON.stringify(commitHash),
+    __APP_BUILD_TIME__: JSON.stringify(buildTime),
+  },
   server: {
     port: 5173,
     proxy: {
@@ -24,3 +44,4 @@ export default defineConfig({
     sourcemap: true,
   },
 });
+
