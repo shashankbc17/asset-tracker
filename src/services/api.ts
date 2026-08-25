@@ -2,8 +2,8 @@ import { Asset, MetalRates, NetWorthSummary, Liability } from '../types/portfoli
 import { calculateAssetMetrics, computePortfolioSummary, calculateLiabilityMetrics } from '../utils/calculations';
 import { fetchCurrentRates } from './ratesService';
 
-const LOCAL_STORAGE_KEY = 'wealth_assets_v4';
-const LOCAL_STORAGE_LIABILITIES_KEY = 'wealth_liabilities_v2';
+export const LOCAL_STORAGE_KEY = 'wealth_assets_v4';
+export const LOCAL_STORAGE_LIABILITIES_KEY = 'wealth_liabilities_v2';
 
 // Auto-purge stale v1 guest keys that contained old seeded data
 if (typeof window !== 'undefined') {

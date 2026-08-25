@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, onSnapshot, setDoc, Firestore } from 'firebase/firestore';
 import { Asset, MetalRates, Liability } from '../types/portfolio';
 import { getActiveFirebaseConfig } from './firebaseConfig';
+import { LOCAL_STORAGE_KEY, LOCAL_STORAGE_LIABILITIES_KEY } from './api';
 
 let db: Firestore | null = null;
 let firestoreUnsubscribe: (() => void) | null = null;
@@ -42,16 +43,17 @@ export function subscribeToUserPortfolio(
             const assets = (data.assets && Array.isArray(data.assets)) ? data.assets : [];
             const liabilities = (data.liabilities && Array.isArray(data.liabilities)) ? data.liabilities : [];
             
+            localStorage.setItem(`${LOCAL_STORAGE_KEY}_${uid}`, JSON.stringify(assets));
             localStorage.setItem(`wealth_assets_${uid}`, JSON.stringify(assets));
-            localStorage.setItem(`wealth_liabilities_v1_${uid}`, JSON.stringify(liabilities));
+            localStorage.setItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${uid}`, JSON.stringify(liabilities));
             if (data.rates) {
               localStorage.setItem(`metals_rates_${uid}`, JSON.stringify(data.rates));
             }
             onUpdate(assets, data.rates, liabilities);
           } else {
             // Document doesn't exist yet on cloud
-            const cachedAssets = localStorage.getItem(`wealth_assets_${uid}`);
-            const cachedLiabilities = localStorage.getItem(`wealth_liabilities_v1_${uid}`);
+            const cachedAssets = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${uid}`) || localStorage.getItem(`wealth_assets_${uid}`);
+            const cachedLiabilities = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${uid}`);
             if (cachedAssets || cachedLiabilities) {
               try {
                 setDoc(docRef, {
