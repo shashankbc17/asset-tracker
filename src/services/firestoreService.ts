@@ -20,6 +20,11 @@ function getDb(): Firestore | null {
   }
 }
 
+function sanitizeForFirestore(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  return JSON.parse(JSON.stringify(obj, (_, v) => (v === undefined ? null : v)));
+}
+
 export function subscribeToUserPortfolio(
   uid: string,
   onUpdate: (assets: Asset[], rates?: MetalRates, liabilities?: Liability[]) => void
@@ -56,11 +61,12 @@ export function subscribeToUserPortfolio(
             const cachedLiabilities = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${uid}`);
             if (cachedAssets || cachedLiabilities) {
               try {
-                setDoc(docRef, {
+                const initialPayload = sanitizeForFirestore({
                   assets: cachedAssets ? JSON.parse(cachedAssets) : [],
                   liabilities: cachedLiabilities ? JSON.parse(cachedLiabilities) : [],
                   updatedAt: new Date().toISOString(),
-                }).catch(() => {});
+                });
+                setDoc(docRef, initialPayload).catch((err) => console.warn('Init setDoc error:', err));
               } catch {}
             }
           }
@@ -96,15 +102,16 @@ export async function savePortfolioToFirestore(
 
   try {
     const docRef = doc(firestore, 'users', uid, 'portfolio', 'current');
-    const payload: Record<string, any> = {
+    const rawPayload: Record<string, any> = {
       assets,
       rates: rates || null,
       updatedAt: new Date().toISOString(),
     };
     if (liabilities !== undefined) {
-      payload.liabilities = liabilities;
+      rawPayload.liabilities = liabilities;
     }
-    await setDoc(docRef, payload, { merge: true });
+    const cleanPayload = sanitizeForFirestore(rawPayload);
+    await setDoc(docRef, cleanPayload, { merge: true });
   } catch (err) {
     console.warn('Failed saving to Firestore (data is safe locally):', err);
   }
