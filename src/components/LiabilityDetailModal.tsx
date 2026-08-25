@@ -59,7 +59,7 @@ export const LiabilityDetailModal: React.FC<LiabilityDetailModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                {liability.lender} • Agreement #{liability.accountNumber || '165941165'} • Disbursed {liability.sanctionDate}
+                {liability.lender} • Account #{liability.accountNumber || 'N/A'} • Disbursed {liability.sanctionDate || 'N/A'}
               </p>
             </div>
           </div>

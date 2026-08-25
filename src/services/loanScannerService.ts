@@ -61,7 +61,7 @@ function parseTextWithRegex(text: string): Partial<Liability> | null {
   const clean = text.replace(/\s+/g, ' ');
 
   // 1. Lender detection
-  let lender = 'HDFC Bank';
+  let lender = 'Bank / Lender';
   let loanType: LoanType = 'PERSONAL';
   if (/HDFC/i.test(clean)) lender = 'HDFC Bank';
   else if (/State Bank of India|SBI/i.test(clean)) lender = 'State Bank of India';
@@ -77,7 +77,6 @@ function parseTextWithRegex(text: string): Partial<Liability> | null {
   else if (/Personal Loan/i.test(clean)) loanType = 'PERSONAL';
 
   // 2. Principal Loan Amount
-  // Matches "Rs. 1522702", "₹1522702", "Disbursed Loan amount (in Rupees) 1522702", "Amount Financed: 1522702"
   let principalAmount: number | undefined;
   const principalMatch = clean.match(/(?:Disbursed Loan amount|Amount Financed|Loan Amount|sanction of Personal Loan of)\s*(?:\(in Rupees\))?\s*(?:Rs\.?|₹)?\s*([0-9]{5,9})/i);
   if (principalMatch) {
@@ -85,7 +84,6 @@ function parseTextWithRegex(text: string): Partial<Liability> | null {
   }
 
   // 3. Interest Rate
-  // Matches "9.99 % Per Annum", "9.99%", "Rate of Interest 9.99%"
   let annualInterestRate: number | undefined;
   const rateMatch = clean.match(/(?:Interest Rate|Rate of Interest|Interest Rate-\(Fixed Rate)[^\d]*([\d]{1,2}(?:\.\d{1,3})?)\s*%/i);
   if (rateMatch) {
@@ -107,7 +105,7 @@ function parseTextWithRegex(text: string): Partial<Liability> | null {
   }
 
   // 6. Due Day of Month
-  let dueDayOfMonth = 7;
+  let dueDayOfMonth = 5;
   const dueDayMatch = clean.match(/(?:Due Date|Due date of payment)[^\d]*(\d{1,2})\s*(?:st|nd|rd|th)?\s*of every Month/i);
   if (dueDayMatch) {
     dueDayOfMonth = parseInt(dueDayMatch[1], 10);
@@ -121,8 +119,11 @@ function parseTextWithRegex(text: string): Partial<Liability> | null {
   }
 
   // 8. Sanction / First EMI Date
-  let sanctionDate = '2025-10-16';
-  let firstEmiDate = '2025-11-07';
+  let sanctionDate = new Date().toISOString().split('T')[0];
+  const nextMonth = new Date();
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  let firstEmiDate = nextMonth.toISOString().split('T')[0];
+
   const dateMatch = clean.match(/Date:\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i);
   if (dateMatch) {
     sanctionDate = `${dateMatch[3]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`;
@@ -130,7 +131,6 @@ function parseTextWithRegex(text: string): Partial<Liability> | null {
 
   const firstEmiMatch = clean.match(/Commencement of repayments?[^\d]*(\d{1,2})[\-\/]([A-Za-z]{3}|\d{1,2})[\-\/](\d{2,4})/i);
   if (firstEmiMatch) {
-    // If standard Nov-25
     const monthNames: Record<string, string> = {
       jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
       jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
@@ -151,11 +151,11 @@ function parseTextWithRegex(text: string): Partial<Liability> | null {
     lender,
     accountNumber,
     loanType,
-    principalAmount: principalAmount || 1522702,
-    annualInterestRate: annualInterestRate || 9.99,
+    principalAmount: principalAmount || 500000,
+    annualInterestRate: annualInterestRate || 9.5,
     tenureMonths: tenureMonths || 36,
-    monthlyEmi: monthlyEmi || 49126,
-    dueDayOfMonth: dueDayOfMonth || 7,
+    monthlyEmi: monthlyEmi || undefined,
+    dueDayOfMonth: dueDayOfMonth || 5,
     sanctionDate,
     firstEmiDate,
     notes: `Auto-extracted from Bank Sanction / KFS Sheet`,
@@ -167,18 +167,18 @@ async function parseWithGemini(file: File, apiKey: string): Promise<Partial<Liab
   const base64Data = await fileToBase64(file);
   const mimeType = file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
 
-  const systemPrompt = `You are a financial document parser specialized in Indian bank loan sanction letters, Key Fact Statements (KFS), and loan agreements.
+  const systemPrompt = `You are a financial document parser specialized in bank loan sanction letters, Key Fact Statements (KFS), and loan agreements.
 Extract all loan specifications from the document and return ONLY valid JSON matching this schema:
 {
-  "name": "Short descriptive name (e.g. HDFC Personal Loan)",
-  "lender": "Bank or lender name (e.g. HDFC Bank, SBI, ICICI)",
+  "name": "Short descriptive name (e.g. Housing Loan / Car Loan)",
+  "lender": "Bank or lender name",
   "accountNumber": "Loan account or agreement number string",
   "loanType": "One of PERSONAL | HOME | GOLD | VEHICLE | EDUCATION | BUSINESS | OTHER",
   "principalAmount": number (total amount financed or disbursed),
-  "annualInterestRate": number (e.g. 9.99 for 9.99%),
+  "annualInterestRate": number (e.g. 9.5 for 9.5%),
   "tenureMonths": number (total loan tenure in months),
   "monthlyEmi": number (monthly EMI installment amount),
-  "dueDayOfMonth": number (day of month EMI is deducted, e.g. 7),
+  "dueDayOfMonth": number (day of month EMI is deducted, e.g. 5),
   "sanctionDate": "YYYY-MM-DD or closest date",
   "firstEmiDate": "YYYY-MM-DD or first repayment date",
   "processingFee": number or 0,
@@ -226,14 +226,14 @@ Do NOT include markdown backticks or explanations, return ONLY pure JSON.`;
   const parsed = JSON.parse(textOutput);
   return {
     name: parsed.name || `${parsed.lender || 'Bank'} Loan`,
-    lender: parsed.lender || 'HDFC Bank',
+    lender: parsed.lender || 'Lender',
     accountNumber: parsed.accountNumber,
     loanType: parsed.loanType || 'PERSONAL',
     principalAmount: Number(parsed.principalAmount) || 0,
     annualInterestRate: Number(parsed.annualInterestRate) || 0,
     tenureMonths: Number(parsed.tenureMonths) || 36,
     monthlyEmi: Number(parsed.monthlyEmi) || 0,
-    dueDayOfMonth: Number(parsed.dueDayOfMonth) || 7,
+    dueDayOfMonth: Number(parsed.dueDayOfMonth) || 5,
     sanctionDate: parsed.sanctionDate || new Date().toISOString().split('T')[0],
     firstEmiDate: parsed.firstEmiDate || new Date().toISOString().split('T')[0],
     processingFee: parsed.processingFee ? Number(parsed.processingFee) : undefined,

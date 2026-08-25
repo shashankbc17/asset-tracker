@@ -38,24 +38,29 @@ export async function getLiabilities(userId = 'default_user'): Promise<Liability
     }
   }
 
-  // Default seeded liability: User's HDFC Bank Personal Loan
+  // If user is authenticated and has no saved liabilities, return empty array
+  if (userId && userId !== 'default_user') {
+    return [];
+  }
+
+  // Generic sample demo liability for guest preview ONLY
   const defaultLiabilities: Liability[] = [
     {
       id: 1,
       userId,
-      name: 'HDFC Personal Loan',
-      lender: 'HDFC Bank',
-      accountNumber: '165941165',
-      loanType: 'PERSONAL',
-      sanctionDate: '2025-10-16',
-      firstEmiDate: '2025-11-07',
-      dueDayOfMonth: 7,
-      principalAmount: 1522702,
-      annualInterestRate: 9.99,
-      tenureMonths: 36,
-      monthlyEmi: 49126,
-      processingFee: 8170,
-      notes: 'HDFC Bank Sanction #165941165 • ₹49,126 EMI on 7th of every month',
+      name: 'Sample Housing Loan',
+      lender: 'Apex Finance Corp',
+      accountNumber: 'HL-DEMO-98213',
+      loanType: 'HOME',
+      sanctionDate: '2023-01-10',
+      firstEmiDate: '2023-02-05',
+      dueDayOfMonth: 5,
+      principalAmount: 2500000,
+      annualInterestRate: 8.50,
+      tenureMonths: 120,
+      monthlyEmi: 31000,
+      processingFee: 10000,
+      notes: 'Demo Home Loan for Portfolio Balance Sheet preview',
     },
   ];
 

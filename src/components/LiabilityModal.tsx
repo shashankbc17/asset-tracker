@@ -31,17 +31,21 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
   assets = [],
 }) => {
   const [name, setName] = useState('');
-  const [lender, setLender] = useState('HDFC Bank');
+  const [lender, setLender] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [loanType, setLoanType] = useState<LoanType>('PERSONAL');
-  const [principalAmount, setPrincipalAmount] = useState<number | ''>(1522702);
-  const [annualInterestRate, setAnnualInterestRate] = useState<number | ''>(9.99);
-  const [tenureMonths, setTenureMonths] = useState<number | ''>(36);
-  const [monthlyEmi, setMonthlyEmi] = useState<number | ''>(49126);
-  const [sanctionDate, setSanctionDate] = useState('2025-10-16');
-  const [firstEmiDate, setFirstEmiDate] = useState('2025-11-07');
-  const [dueDayOfMonth, setDueDayOfMonth] = useState<number>(7);
-  const [processingFee, setProcessingFee] = useState<number | ''>(8170);
+  const [principalAmount, setPrincipalAmount] = useState<number | ''>('');
+  const [annualInterestRate, setAnnualInterestRate] = useState<number | ''>('');
+  const [tenureMonths, setTenureMonths] = useState<number | ''>('');
+  const [monthlyEmi, setMonthlyEmi] = useState<number | ''>('');
+  const [sanctionDate, setSanctionDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [firstEmiDate, setFirstEmiDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [dueDayOfMonth, setDueDayOfMonth] = useState<number>(5);
+  const [processingFee, setProcessingFee] = useState<number | ''>('');
   const [linkedAssetId, setLinkedAssetId] = useState<number | undefined>(undefined);
   const [notes, setNotes] = useState('');
 
@@ -78,25 +82,27 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
       setMonthlyEmi(editingLiability.monthlyEmi || '');
       setSanctionDate(editingLiability.sanctionDate || new Date().toISOString().split('T')[0]);
       setFirstEmiDate(editingLiability.firstEmiDate || new Date().toISOString().split('T')[0]);
-      setDueDayOfMonth(editingLiability.dueDayOfMonth || 7);
+      setDueDayOfMonth(editingLiability.dueDayOfMonth || 5);
       setProcessingFee(editingLiability.processingFee || '');
       setLinkedAssetId(editingLiability.linkedAssetId);
       setNotes(editingLiability.notes || '');
       setScanSuccessMessage(null);
       setScanError(null);
     } else {
-      setName('HDFC Personal Loan');
-      setLender('HDFC Bank');
+      setName('');
+      setLender('');
       setAccountNumber('');
       setLoanType('PERSONAL');
-      setPrincipalAmount(1522702);
-      setAnnualInterestRate(9.99);
-      setTenureMonths(36);
-      setMonthlyEmi(49126);
-      setSanctionDate('2025-10-16');
-      setFirstEmiDate('2025-11-07');
-      setDueDayOfMonth(7);
-      setProcessingFee(8170);
+      setPrincipalAmount('');
+      setAnnualInterestRate('');
+      setTenureMonths('');
+      setMonthlyEmi('');
+      setSanctionDate(new Date().toISOString().split('T')[0]);
+      const nextMonth = new Date();
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      setFirstEmiDate(nextMonth.toISOString().split('T')[0]);
+      setDueDayOfMonth(5);
+      setProcessingFee('');
       setLinkedAssetId(undefined);
       setNotes('');
       setScanSuccessMessage(null);
@@ -367,7 +373,7 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. HDFC Personal Loan"
+                  placeholder="e.g. Home Loan / Car Loan"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
                 />
               </div>
@@ -381,7 +387,7 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
                   required
                   value={lender}
                   onChange={(e) => setLender(e.target.value)}
-                  placeholder="e.g. HDFC Bank, SBI, ICICI"
+                  placeholder="e.g. Bank / Lender Name"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
                 />
               </div>
@@ -416,7 +422,7 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
                   type="text"
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
-                  placeholder="e.g. 165941165"
+                  placeholder="e.g. LA-98765432"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
                 />
               </div>
@@ -435,7 +441,7 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
                   step="any"
                   value={principalAmount}
                   onChange={(e) => setPrincipalAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="e.g. 1522702"
+                  placeholder="e.g. 500000"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
                 />
               </div>
@@ -451,7 +457,7 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
                   step="0.01"
                   value={annualInterestRate}
                   onChange={(e) => setAnnualInterestRate(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="e.g. 9.99"
+                  placeholder="e.g. 9.5"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono"
                 />
               </div>
