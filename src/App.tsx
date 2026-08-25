@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import * as Sentry from '@sentry/react';
 import { Navbar } from './components/Navbar';
 import { NetWorthHero } from './components/NetWorthHero';
 import { AllocationPills } from './components/AllocationPills';
@@ -118,6 +119,17 @@ export const App: React.FC = () => {
     const unsubscribeAuth = AuthService.onAuthStateChange((currentUser) => {
       setUser(currentUser);
 
+      // Tag active user session in Sentry for Datadog-like tracing
+      if (currentUser) {
+        Sentry.setUser({
+          id: currentUser.uid,
+          email: currentUser.email,
+          username: currentUser.displayName,
+        });
+      } else {
+        Sentry.setUser({ id: 'guest_user' });
+      }
+
       if (unsubscribeFirestore) {
         unsubscribeFirestore();
         unsubscribeFirestore = null;
@@ -166,6 +178,7 @@ export const App: React.FC = () => {
         refreshPortfolio(loadedAssets, initialRates, currentUserId, loadedLiabs);
       } catch (err) {
         console.error('Initialization error:', err);
+        Sentry.captureException(err);
       } finally {
         setIsLoading(false);
       }
@@ -179,12 +192,14 @@ export const App: React.FC = () => {
       await AuthService.signInWithGoogle();
     } catch (err) {
       alert('Google Sign-In was cancelled or failed. Please check browser popups.');
+      Sentry.captureException(err);
     }
   };
 
   const handleLogout = async () => {
     await AuthService.signOut();
     setUser(null);
+    Sentry.setUser({ id: 'guest_user' });
     const [guestAssets, guestLiabs] = await Promise.all([
       getAssets('default_user', rates),
       getLiabilities('default_user'),
@@ -195,6 +210,13 @@ export const App: React.FC = () => {
   // Asset CRUD Handlers
   const handleSaveAsset = async (assetData: Asset) => {
     const userId = user ? user.uid : 'default_user';
+    Sentry.addBreadcrumb({
+      category: 'crud.save_asset',
+      message: `Saving asset: ${assetData.name} (${assetData.assetType})`,
+      level: 'info',
+      data: { name: assetData.name, type: assetData.assetType, userId },
+    });
+
     const saved = await createOrUpdateAsset({ ...assetData, userId }, userId, rates);
     let updatedList: Asset[];
     if (editingAsset && editingAsset.id) {
@@ -213,6 +235,13 @@ export const App: React.FC = () => {
   const handleDeleteAsset = async (id: number | string) => {
     if (window.confirm('Are you sure you want to delete this asset holding?')) {
       const userId = user ? user.uid : 'default_user';
+      Sentry.addBreadcrumb({
+        category: 'crud.delete_asset',
+        message: `Deleted asset #${id}`,
+        level: 'info',
+        data: { assetId: id, userId },
+      });
+
       await apiDeleteAsset(id, userId);
       const remaining = assets.filter((a) => String(a.id) !== String(id));
       refreshPortfolio(remaining, rates, userId, liabilities);
@@ -245,6 +274,13 @@ export const App: React.FC = () => {
   // Liability / Loan CRUD Handlers
   const handleSaveLiability = async (liabilityData: Liability) => {
     const userId = user ? user.uid : 'default_user';
+    Sentry.addBreadcrumb({
+      category: 'crud.save_loan',
+      message: `Saving loan: ${liabilityData.name} - ${liabilityData.lender}`,
+      level: 'info',
+      data: { name: liabilityData.name, lender: liabilityData.lender, principal: liabilityData.principalAmount, userId },
+    });
+
     const saved = await createOrUpdateLiability({ ...liabilityData, userId }, userId);
     let updatedLiabs: Liability[];
     if (editingLiability && editingLiability.id) {
@@ -263,6 +299,13 @@ export const App: React.FC = () => {
   const handleDeleteLiability = async (id: number | string) => {
     if (window.confirm('Are you sure you want to delete this loan record?')) {
       const userId = user ? user.uid : 'default_user';
+      Sentry.addBreadcrumb({
+        category: 'crud.delete_loan',
+        message: `Deleted loan #${id}`,
+        level: 'info',
+        data: { loanId: id, userId },
+      });
+
       await apiDeleteLiability(id, userId);
       const remaining = liabilities.filter((l) => String(l.id) !== String(id));
       refreshPortfolio(assets, rates, userId, remaining);
