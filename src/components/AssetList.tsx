@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -11,6 +11,8 @@ import {
   Edit3, 
   Trash2, 
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Calendar,
   X,
   Coins,
@@ -259,6 +261,36 @@ export const AssetList: React.FC<AssetListProps> = ({
   const activeFilterOption = useMemo(() => {
     return filterOptions.find(o => o.id === subFilter) || filterOptions[0];
   }, [filterOptions, subFilter]);
+
+  // Horizontal Quick Filter scroll controls
+  const quickScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = quickScrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 6);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 6);
+  }, []);
+
+  useEffect(() => {
+    // Initial check & on options change
+    const timer = setTimeout(checkScroll, 120);
+    const handleResize = () => checkScroll();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [checkScroll, filterOptions, selectedType]);
+
+  const scrollQuick = (dir: 'left' | 'right') => {
+    if (!quickScrollRef.current) return;
+    const amount = dir === 'left' ? -200 : 200;
+    quickScrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+    setTimeout(checkScroll, 280);
+  };
 
   // Filter and sort assets
   const filteredAssets = useMemo(() => {
@@ -660,35 +692,77 @@ export const AssetList: React.FC<AssetListProps> = ({
 
       </div>
 
-      {/* 3. Quick Sub-category Filter Pills (Interactive horizontal chips) */}
+      {/* 3. Quick Sub-category Filter Pills (Interactive horizontal chips with scroll navigation) */}
       {filterOptions.length > 1 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+        <div className="relative flex items-center gap-1.5 py-1">
+          {/* Quick label */}
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-0.5 flex items-center gap-1">
             <Filter className="w-3 h-3 text-amber-400" />
-            Quick:
+            <span className="hidden xs:inline">Quick:</span>
           </span>
-          {filterOptions.map((opt) => {
-            const isSelected = subFilter === opt.id;
-            return (
-              <button
-                key={opt.id}
-                onClick={() => setSubFilter(opt.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all shrink-0 border ${
-                  isSelected
-                    ? 'bg-amber-400 text-slate-950 font-bold border-amber-300 shadow-md shadow-amber-500/20 scale-[1.02]'
-                    : 'bg-slate-900/80 hover:bg-slate-800/90 border-slate-800 text-slate-300 hover:text-white'
-                }`}
-              >
-                {opt.icon && <span>{opt.icon}</span>}
-                <span>{opt.shortLabel || opt.label}</span>
-                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
-                  isSelected ? 'bg-slate-950/20 text-slate-950 font-bold' : 'bg-slate-800 text-slate-400'
-                }`}>
-                  {opt.count}
-                </span>
-              </button>
-            );
-          })}
+
+          {/* Left Scroll Button (appears when scrolled right) */}
+          {canScrollLeft && (
+            <button
+              onClick={() => scrollQuick('left')}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 shadow-md shrink-0 transition-all z-10 active:scale-95"
+              title="Scroll left"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+            </button>
+          )}
+
+          {/* Scrollable Container with native touch swiping */}
+          <div
+            ref={quickScrollRef}
+            onScroll={checkScroll}
+            className="flex items-center gap-1.5 overflow-x-auto scroll-smooth py-1 no-scrollbar flex-1 touch-pan-x"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            {filterOptions.map((opt) => {
+              const isSelected = subFilter === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  onClick={(e) => {
+                    setSubFilter(opt.id);
+                    (e.currentTarget as HTMLElement).scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'nearest',
+                      inline: 'center',
+                    });
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all shrink-0 border select-none ${
+                    isSelected
+                      ? 'bg-amber-400 text-slate-950 font-bold border-amber-300 shadow-md shadow-amber-500/20 scale-[1.02]'
+                      : 'bg-slate-900/80 hover:bg-slate-800/90 border-slate-800 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  {opt.icon && <span>{opt.icon}</span>}
+                  <span>{opt.shortLabel || opt.label}</span>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
+                    isSelected ? 'bg-slate-950/20 text-slate-950 font-bold' : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {opt.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right Scroll Button / "More >" (appears when more options exist on the right) */}
+          {canScrollRight && (
+            <button
+              onClick={() => scrollQuick('right')}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10 shrink-0 transition-all z-10 active:scale-95 animate-pulse"
+              title="More options to the right"
+              aria-label="Scroll right"
+            >
+              <span className="text-[11px] font-bold">More</span>
+              <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+            </button>
+          )}
         </div>
       )}
 
