@@ -8,11 +8,24 @@ import {
   Landmark, 
   PiggyBank, 
   Sparkles, 
-  Check 
+  Check,
+  Lock 
 } from 'lucide-react';
 import { Asset, AssetType, MetalRates, MetalType, CategoryType } from '../types/portfolio';
 import { getRateForDate } from '../services/ratesService';
 import { calculateAssetMetrics, formatINR, formatNumber } from '../utils/calculations';
+
+export function computeAutoCoinName(
+  metalType: MetalType,
+  grams: number | '' | undefined,
+  purity: '22K' | '24K' = '22K'
+): string {
+  const weightStr = (grams !== undefined && grams !== '' && Number(grams) > 0) ? ` (${Number(grams)}g)` : '';
+  if (metalType === 'SILVER') {
+    return `Silver Coin${weightStr}`;
+  }
+  return `${purity} Coin${weightStr}`;
+}
 
 interface AssetModalProps {
   isOpen: boolean;
@@ -37,6 +50,7 @@ export const AssetModal: React.FC<AssetModalProps> = ({
   // Precious Metals
   const [metalType, setMetalType] = useState<MetalType>('GOLD');
   const [categoryType, setCategoryType] = useState<CategoryType>('COIN_BAR');
+  const [goldPurity, setGoldPurity] = useState<'22K' | '24K'>('22K');
   const [grams, setGrams] = useState<number | ''>(10);
   const [rateBought, setRateBought] = useState<number | ''>(rates.gold24k || rates.gold || 16408);
   const [deduction, setDeduction] = useState<number | ''>(0);
@@ -69,20 +83,35 @@ export const AssetModal: React.FC<AssetModalProps> = ({
   const [monthlyContribution, setMonthlyContribution] = useState<number | ''>(15000);
   const [pfInterestRate, setPfInterestRate] = useState<number | ''>(8.25);
 
+  const isCoin = assetType === 'PRECIOUS_METALS' && categoryType === 'COIN_BAR';
+  const autoCoinName = computeAutoCoinName(metalType, grams, goldPurity);
+
   // Prepopulate form on open / edit
   useEffect(() => {
     if (editingAsset) {
       setAssetType(editingAsset.assetType);
-      setName(editingAsset.name || '');
       setPurchaseDate(editingAsset.purchaseDate || new Date().toISOString().split('T')[0]);
       setNotes(editingAsset.notes || '');
 
       // Metals
-      setMetalType(editingAsset.metalType || 'GOLD');
-      setCategoryType(editingAsset.categoryType || 'COIN_BAR');
-      setGrams(editingAsset.grams ?? 10);
+      const mType = editingAsset.metalType || 'GOLD';
+      const cType = editingAsset.categoryType || 'COIN_BAR';
+      const g = editingAsset.grams ?? 10;
+      const initialPurity: '22K' | '24K' = (editingAsset.name && editingAsset.name.includes('24K')) ? '24K' : '22K';
+
+      setMetalType(mType);
+      setCategoryType(cType);
+      setGoldPurity(initialPurity);
+      setGrams(g);
       setRateBought(editingAsset.rateBought ?? (rates.gold24k || 16408));
-      setDeduction(editingAsset.deduction ?? 0);
+      setDeduction(editingAsset.deduction ?? (cType === 'JEWELRY' ? 4 : 0));
+
+      // If it's a coin, immediately force the standardized coin name so old jewelry names never appear!
+      if (editingAsset.assetType === 'PRECIOUS_METALS' && cType === 'COIN_BAR') {
+        setName(computeAutoCoinName(mType, g, initialPurity));
+      } else {
+        setName(editingAsset.name || '');
+      }
 
       // Equities
       setTicker(editingAsset.ticker || '');
@@ -112,11 +141,16 @@ export const AssetModal: React.FC<AssetModalProps> = ({
       setPfInterestRate(editingAsset.pfInterestRate ?? 8.25);
     } else {
       // New asset default
-      setName('');
+      setName(computeAutoCoinName('GOLD', 10, '22K'));
       setPurchaseDate(new Date().toISOString().split('T')[0]);
       setNotes('');
       setRateBought(rates.gold24k || rates.gold || 16408);
       setSuggestedRateNote(null);
+      setGoldPurity('22K');
+      setMetalType('GOLD');
+      setCategoryType('COIN_BAR');
+      setGrams(10);
+      setDeduction(0);
     }
   }, [editingAsset, isOpen, rates]);
 
@@ -126,9 +160,9 @@ export const AssetModal: React.FC<AssetModalProps> = ({
     const lookup = await getRateForDate(purchaseDate);
     if (lookup) {
       if (metalType === 'GOLD') {
-        const rate = (categoryType === 'JEWELRY' ? lookup.gold22k : lookup.gold24k) || 0;
+        const rate = (categoryType === 'JEWELRY' || goldPurity === '22K' ? lookup.gold22k : lookup.gold24k) || 0;
         setRateBought(Math.round(rate));
-        setSuggestedRateNote(`Auto-suggested from ${lookup.matchedDate} benchmark (₹${rate}/g)`);
+        setSuggestedRateNote(`Auto-suggested ${goldPurity} Gold from ${lookup.matchedDate} benchmark (₹${rate}/g)`);
       } else {
         const rate = lookup.silver || 0;
         setRateBought(Math.round(rate));
@@ -141,7 +175,7 @@ export const AssetModal: React.FC<AssetModalProps> = ({
 
   // Compute live preview
   const currentAssetDraft: Asset = {
-    name: name || 'Preview Holding',
+    name: isCoin ? autoCoinName : (name || 'Preview Holding'),
     assetType,
     purchaseDate,
     investedAmount:
@@ -178,7 +212,8 @@ export const AssetModal: React.FC<AssetModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    const finalName = isCoin ? autoCoinName : name.trim();
+    if (!finalName) {
       alert('Please enter an Asset Name.');
       return;
     }
@@ -186,7 +221,7 @@ export const AssetModal: React.FC<AssetModalProps> = ({
     const payload: Asset = {
       ...currentAssetDraft,
       id: editingAsset?.id,
-      name: name.trim(),
+      name: finalName,
     };
 
     onSave(payload);
@@ -248,8 +283,13 @@ export const AssetModal: React.FC<AssetModalProps> = ({
                       key={item.id}
                       onClick={() => {
                         setAssetType(item.id as AssetType);
-                        if (!name || name.includes('Gold') || name.includes('Shares') || name.includes('Flat') || name.includes('FD') || name.includes('EPF')) {
-                          if (item.id === 'PRECIOUS_METALS') setName(metalType === 'GOLD' ? '24K Gold Bar' : 'Silver Ingot');
+                        if (item.id === 'PRECIOUS_METALS') {
+                          if (categoryType === 'COIN_BAR') {
+                            setName(computeAutoCoinName(metalType, grams, goldPurity));
+                          } else {
+                            setName(metalType === 'GOLD' ? '22K Gold Jewelry' : 'Silver Jewelry');
+                          }
+                        } else if (!name || name.includes('Gold') || name.includes('Silver') || name.includes('Coin') || name.includes('Shares') || name.includes('Flat') || name.includes('FD') || name.includes('EPF')) {
                           if (item.id === 'EQUITY') setName('Bluechip Equity Portfolio');
                           if (item.id === 'REAL_ESTATE') setName('Residential Apartment');
                           if (item.id === 'CASH_SAVINGS') setName('Bank Fixed Deposit');
@@ -273,17 +313,43 @@ export const AssetModal: React.FC<AssetModalProps> = ({
             {/* 2. Common Fields: Name & Purchase Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Holding Name / Label *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Holding Name / Label *
+                  </label>
+                  {isCoin ? (
+                    <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 font-semibold">
+                      <Lock className="w-3 h-3" /> Auto-Generated Coin Name
+                    </span>
+                  ) : assetType === 'PRECIOUS_METALS' && categoryType === 'JEWELRY' ? (
+                    <span className="text-[10px] text-amber-400/90 font-medium">
+                      Custom Jewelry Name
+                    </span>
+                  ) : null}
+                </div>
                 <input
                   type="text"
                   required
-                  value={name}
+                  disabled={isCoin}
+                  value={isCoin ? autoCoinName : name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. 24K Minted Gold Bar, TCS Shares..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
+                  placeholder={
+                    isCoin
+                      ? autoCoinName
+                      : "e.g. 22K Bridal Gold Jewelry, Necklace, Bangles..."
+                  }
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none transition-all ${
+                    isCoin
+                      ? 'bg-slate-800/40 border-slate-700/60 text-amber-300 font-bold cursor-not-allowed select-none shadow-inner'
+                      : 'bg-slate-800 border-slate-700 focus:border-amber-500'
+                  }`}
                 />
+                {isCoin && (
+                  <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                    <span className="text-amber-400">ℹ️</span>
+                    <span>Coins have fixed naming based on weight ({grams || 0}g). Custom names are only for Jewelry holdings.</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -325,7 +391,13 @@ export const AssetModal: React.FC<AssetModalProps> = ({
                     <label className="block text-xs font-semibold text-slate-300 mb-1">Metal Type</label>
                     <select
                       value={metalType}
-                      onChange={(e) => setMetalType(e.target.value as MetalType)}
+                      onChange={(e) => {
+                        const val = e.target.value as MetalType;
+                        setMetalType(val);
+                        if (categoryType === 'COIN_BAR') {
+                          setName(computeAutoCoinName(val, grams, goldPurity));
+                        }
+                      }}
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
                     >
                       <option value="GOLD">Gold</option>
@@ -340,8 +412,16 @@ export const AssetModal: React.FC<AssetModalProps> = ({
                       onChange={(e) => {
                         const val = e.target.value as CategoryType;
                         setCategoryType(val);
-                        if (val === 'JEWELRY' && deduction === 0) setDeduction(4.0);
-                        if (val === 'COIN_BAR') setDeduction(0);
+                        if (val === 'JEWELRY') {
+                          if (deduction === 0) setDeduction(4.0);
+                          if (!name || name.includes('Coin') || name.includes('Bar') || name.includes('Bullion')) {
+                            setName(metalType === 'GOLD' ? `${goldPurity} Gold Jewelry` : 'Silver Jewelry');
+                          }
+                        }
+                        if (val === 'COIN_BAR') {
+                          setDeduction(0);
+                          setName(computeAutoCoinName(metalType, grams, goldPurity));
+                        }
                       }}
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
                     >
@@ -350,6 +430,54 @@ export const AssetModal: React.FC<AssetModalProps> = ({
                     </select>
                   </div>
                 </div>
+
+                {/* Gold Purity / Karat Toggle */}
+                {metalType === 'GOLD' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span>Gold Purity / Karat</span>
+                      <span className="text-[10px] text-amber-400 font-mono">
+                        {categoryType === 'COIN_BAR' ? `Coin Name: ${computeAutoCoinName('GOLD', grams, goldPurity)}` : 'Benchmark Rate Purity'}
+                      </span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGoldPurity('22K');
+                          if (categoryType === 'COIN_BAR') {
+                            setName(computeAutoCoinName('GOLD', grams, '22K'));
+                          }
+                        }}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                          goldPurity === '22K'
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm ring-1 ring-amber-500/40'
+                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span>22K Coin (91.6% Sovereign)</span>
+                        {goldPurity === '22K' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGoldPurity('24K');
+                          if (categoryType === 'COIN_BAR') {
+                            setName(computeAutoCoinName('GOLD', grams, '24K'));
+                          }
+                        }}
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                          goldPurity === '24K'
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm ring-1 ring-amber-500/40'
+                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <span>24K Coin (99.9% Bullion)</span>
+                        {goldPurity === '24K' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
@@ -360,7 +488,13 @@ export const AssetModal: React.FC<AssetModalProps> = ({
                       min="0.01"
                       required
                       value={grams}
-                      onChange={(e) => setGrams(e.target.value === '' ? '' : Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : Number(e.target.value);
+                        setGrams(val);
+                        if (categoryType === 'COIN_BAR') {
+                          setName(computeAutoCoinName(metalType, val, goldPurity));
+                        }
+                      }}
                       placeholder="e.g. 50"
                       className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500 font-mono"
                     />

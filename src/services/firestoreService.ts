@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, onSnapshot, setDoc, Firestore } from 'firebase/firestore';
 import { Asset, MetalRates, Liability } from '../types/portfolio';
 import { getActiveFirebaseConfig } from './firebaseConfig';
-import { LOCAL_STORAGE_KEY, LOCAL_STORAGE_LIABILITIES_KEY } from './api';
+import { LOCAL_STORAGE_KEY, LOCAL_STORAGE_LIABILITIES_KEY, sanitizeCoinAssetName } from './api';
 
 let db: Firestore | null = null;
 let firestoreUnsubscribe: (() => void) | null = null;
@@ -45,7 +45,8 @@ export function subscribeToUserPortfolio(
         try {
           if (snapshot.exists()) {
             const data = snapshot.data();
-            const assets = (data.assets && Array.isArray(data.assets)) ? data.assets : [];
+            const rawAssets: Asset[] = (data.assets && Array.isArray(data.assets)) ? data.assets : [];
+            const assets: Asset[] = rawAssets.map(sanitizeCoinAssetName);
             const liabilities = (data.liabilities && Array.isArray(data.liabilities)) ? data.liabilities : [];
             
             localStorage.setItem(`${LOCAL_STORAGE_KEY}_${uid}`, JSON.stringify(assets));

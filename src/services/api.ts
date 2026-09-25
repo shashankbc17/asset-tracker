@@ -151,6 +151,21 @@ export async function deleteLiability(id: number | string, userId = 'default_use
   return true;
 }
 
+export function sanitizeCoinAssetName(asset: Asset): Asset {
+  if (asset.assetType === 'PRECIOUS_METALS' && asset.categoryType === 'COIN_BAR') {
+    if (asset.name && /jewelry|jewellery/i.test(asset.name)) {
+      const purity = asset.name.includes('24K') ? '24K' : '22K';
+      const weightStr = asset.grams ? ` (${asset.grams}g)` : '';
+      if (asset.metalType === 'SILVER') {
+        asset.name = `Silver Coin${weightStr}`;
+      } else {
+        asset.name = `${purity} Coin${weightStr}`;
+      }
+    }
+  }
+  return asset;
+}
+
 export async function getAssets(userId = 'default_user', rates?: MetalRates): Promise<Asset[]> {
   try {
     const res = await fetch(`/api/assets?userId=${encodeURIComponent(userId)}`);
@@ -159,10 +174,13 @@ export async function getAssets(userId = 'default_user', rates?: MetalRates): Pr
       const data: Asset[] = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const currentRates = rates || await fetchCurrentRates();
-        return data.map((a) => ({
-          ...a,
-          metrics: calculateAssetMetrics(a, currentRates),
-        }));
+        return data.map((a) => {
+          const clean = sanitizeCoinAssetName(a);
+          return {
+            ...clean,
+            metrics: calculateAssetMetrics(clean, currentRates),
+          };
+        });
       }
     }
   } catch {
@@ -176,10 +194,13 @@ export async function getAssets(userId = 'default_user', rates?: MetalRates): Pr
       const parsed: Asset[] = JSON.parse(local);
       if (Array.isArray(parsed)) {
         const currentRates = rates || await fetchCurrentRates();
-        return parsed.map((a) => ({
-          ...a,
-          metrics: calculateAssetMetrics(a, currentRates),
-        }));
+        return parsed.map((a) => {
+          const clean = sanitizeCoinAssetName(a);
+          return {
+            ...clean,
+            metrics: calculateAssetMetrics(clean, currentRates),
+          };
+        });
       }
     } catch {
       // ignore
@@ -330,13 +351,14 @@ export async function createOrUpdateAsset(asset: Asset, userId = 'default_user',
   const local = localStorage.getItem(primaryKey) || localStorage.getItem(legacyKey);
   let list: Asset[] = local ? JSON.parse(local) : [];
 
+  const cleanAsset = sanitizeCoinAssetName(asset);
   let savedAsset: Asset;
-  if (asset.id) {
-    list = list.map((item) => (String(item.id) === String(asset.id) ? { ...asset } : item));
-    savedAsset = asset;
+  if (cleanAsset.id) {
+    list = list.map((item) => (String(item.id) === String(cleanAsset.id) ? { ...cleanAsset } : item));
+    savedAsset = cleanAsset;
   } else {
     savedAsset = {
-      ...asset,
+      ...cleanAsset,
       id: Date.now(),
       userId,
     };
