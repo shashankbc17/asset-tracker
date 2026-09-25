@@ -151,15 +151,18 @@ export const CsvModal: React.FC<CsvModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-hidden overscroll-contain">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden text-white"
+          initial={{ opacity: 0, y: 50, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 50, scale: 0.96 }}
+          className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] sm:max-h-[90vh] flex flex-col text-white"
         >
+          {/* iOS Sheet Handle indicator on mobile */}
+          <div className="w-10 h-1.5 rounded-full bg-slate-700/80 mx-auto my-2 shrink-0 sm:hidden" />
+
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90 shrink-0 sticky top-0 z-10">
             <div>
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 <FileSpreadsheet className="w-5 h-5 text-sky-400" />
@@ -224,10 +227,13 @@ export const CsvModal: React.FC<CsvModalProps> = ({
 
           </div>
 
-          <div className="p-4 border-t border-slate-800 bg-slate-900 flex justify-end">
+          <div 
+            className="p-4 border-t border-slate-800 bg-slate-900/95 backdrop-blur-md flex justify-end shrink-0 sticky bottom-0 z-10"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+          >
             <button
               onClick={onClose}
-              className="px-6 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200"
+              className="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 active:scale-95 transition-all"
             >
               Close
             </button>

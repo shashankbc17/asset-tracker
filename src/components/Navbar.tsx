@@ -62,7 +62,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   const shortName = getShortName(user?.displayName, user?.email);
 
   return (
-    <header className="bg-slate-900 border-b border-slate-800 text-white shadow-md select-none sticky top-0 z-30">
+    <header 
+      className="bg-slate-900 border-b border-slate-800 text-white shadow-md select-none sticky top-0 z-30"
+      style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}
+    >
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         
         {/* Main Navbar Row */}

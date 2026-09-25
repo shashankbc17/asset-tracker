@@ -12,6 +12,7 @@ import { LiabilityDetailModal } from './components/LiabilityDetailModal';
 import { RatesModal } from './components/RatesModal';
 import { AnalyticsModal } from './components/AnalyticsModal';
 import { CsvModal } from './components/CsvModal';
+import { MobileTabBar } from './components/MobileTabBar';
 import { Asset, AssetType, MetalRates, NetWorthSummary, Liability } from './types/portfolio';
 import { 
   getAssets, 
@@ -405,7 +406,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 space-y-5">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-3 pb-24 md:py-6 space-y-4 sm:space-y-6">
         
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
@@ -646,9 +647,21 @@ export const App: React.FC = () => {
         onImportSuccess={handleImportSuccess}
       />
 
+      {/* iOS-Style Native Mobile Bottom Navigation Bar */}
+      <MobileTabBar
+        mainView={mainView}
+        onChangeView={setMainView}
+        onOpenAddAsset={handleOpenAddModal}
+        onOpenAddLoan={handleOpenAddLoan}
+        onOpenAnalytics={() => setIsAnalyticsOpen(true)}
+        onSyncRates={handleSyncRates}
+        isSyncingRates={isSyncingRates}
+        activeLoansCount={summary.activeLoansCount}
+      />
+
       {/* Live Rates Sync Floating Toast */}
       {syncNotification && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-slate-900 border border-emerald-500/50 text-white px-4 py-3 rounded-2xl shadow-2xl shadow-emerald-500/10 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 max-w-sm sm:max-w-md bg-slate-900 border border-emerald-500/50 text-white px-4 py-3 rounded-2xl shadow-2xl shadow-emerald-500/10 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
@@ -659,7 +672,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Footer with Live Build & Git Commit Hash */}
-      <footer className="border-t border-slate-800/80 bg-slate-900/60 py-5 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-800/80 bg-slate-900/60 py-5 pb-24 md:pb-5 text-center text-xs text-slate-500">
         <p>
           Asset Tracker • v4.1.0 (Commit: <span className="font-mono text-amber-400 font-semibold">{__APP_GIT_COMMIT__}</span>) • Built with React, Tailwind CSS &amp; Spring Boot
         </p>

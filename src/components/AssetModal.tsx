@@ -235,16 +235,18 @@ export const AssetModal: React.FC<AssetModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-hidden overscroll-contain">
         <motion.div
           initial={{ opacity: 0, y: 50, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 50, scale: 0.96 }}
-          className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col text-white"
+          className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] sm:max-h-[92vh] flex flex-col text-white"
         >
-          
+          {/* iOS Sheet Handle indicator on mobile */}
+          <div className="w-10 h-1.5 rounded-full bg-slate-700/80 mx-auto my-2 shrink-0 sm:hidden" />
+
           {/* Modal Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90 sticky top-0 z-10">
+          <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-800 bg-slate-900/95 sticky top-0 z-10">
             <div>
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
@@ -832,12 +834,15 @@ export const AssetModal: React.FC<AssetModalProps> = ({
               </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            {/* Modal Actions - Sticky Bottom on Mobile with Safe Area */}
+            <div 
+              className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-3 border-t border-slate-800 flex items-center justify-end gap-3 z-10 shrink-0"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+            >
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm font-semibold text-slate-300 transition-all"
+                className="px-5 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm font-semibold text-slate-300 transition-all active:scale-95"
               >
                 Cancel
               </button>

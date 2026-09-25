@@ -69,7 +69,7 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: '100%', opacity: 0 }}
           transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-          className="relative z-10 w-full sm:max-w-md h-[90vh] sm:h-full bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-800 shadow-2xl flex flex-col text-white rounded-t-3xl sm:rounded-none overflow-hidden"
+          className="relative z-10 w-full sm:max-w-md h-[92dvh] sm:h-full max-h-[92dvh] sm:max-h-full bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-800 shadow-2xl flex flex-col text-white rounded-t-3xl sm:rounded-none overflow-hidden"
         >
           {/* Mobile Handle indicator */}
           <div className="sm:hidden flex justify-center pt-3 pb-1">
@@ -287,7 +287,10 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({
           </div>
 
           {/* Footer Action Bar: Edit & Delete On Demand */}
-          <div className="p-4 sm:p-6 border-t border-slate-800 bg-slate-900/95 grid grid-cols-2 gap-3">
+          <div 
+            className="p-4 sm:p-6 border-t border-slate-800 bg-slate-900/95 grid grid-cols-2 gap-3 shrink-0"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
+          >
             <button
               onClick={() => {
                 onClose();

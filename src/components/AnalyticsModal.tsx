@@ -26,15 +26,18 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-hidden overscroll-contain">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col text-white"
+          initial={{ opacity: 0, y: 50, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 50, scale: 0.96 }}
+          className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] sm:max-h-[90vh] flex flex-col text-white"
         >
+          {/* iOS Sheet Handle indicator on mobile */}
+          <div className="w-10 h-1.5 rounded-full bg-slate-700/80 mx-auto my-2 shrink-0 sm:hidden" />
+
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90 sticky top-0 z-10">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90 sticky top-0 z-10 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 <PieChart className="w-5 h-5 text-emerald-400" />

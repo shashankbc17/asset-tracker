@@ -39,15 +39,18 @@ export const RatesModal: React.FC<RatesModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-hidden overscroll-contain">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden text-white"
+          initial={{ opacity: 0, y: 50, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 50, scale: 0.96 }}
+          className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] sm:max-h-[90vh] flex flex-col text-white"
         >
+          {/* iOS Sheet Handle indicator on mobile */}
+          <div className="w-10 h-1.5 rounded-full bg-slate-700/80 mx-auto my-2 shrink-0 sm:hidden" />
+
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
@@ -65,7 +68,7 @@ export const RatesModal: React.FC<RatesModalProps> = ({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 touch-scroll">
             {/* Meta Info Banner */}
             <div className="flex items-center justify-between bg-slate-800/60 p-3 rounded-2xl border border-slate-700/50 text-xs text-slate-300">
               <div className="flex items-center gap-1.5">
@@ -127,19 +130,22 @@ export const RatesModal: React.FC<RatesModalProps> = ({
                 type="button"
                 onClick={onSyncLive}
                 disabled={isSyncing}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center gap-2 transition-all"
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center gap-2 transition-all active:scale-95"
               >
                 <RefreshCw className={`w-4 h-4 text-amber-400 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span>{isSyncing ? 'Fetching Live Bangalore Rates...' : 'Fetch Latest Live Market Spot Price'}</span>
               </button>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            {/* Actions - Sticky Bottom on Mobile with Safe Area */}
+            <div 
+              className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-3 border-t border-slate-800 flex items-center justify-end gap-3 z-10 shrink-0"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+            >
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300"
+                className="px-5 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 active:scale-95"
               >
                 Cancel
               </button>

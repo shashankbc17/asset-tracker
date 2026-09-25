@@ -210,17 +210,20 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-6">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-hidden overscroll-contain">
+      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] sm:max-h-[90vh] flex flex-col my-0 sm:my-6">
         
+        {/* iOS Sheet Handle indicator on mobile */}
+        <div className="w-10 h-1.5 rounded-full bg-slate-700/80 mx-auto my-2 shrink-0 sm:hidden" />
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-slate-800 bg-slate-950/50">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-800 bg-slate-950/90 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">
+              <h2 className="text-base sm:text-lg font-bold text-white">
                 {editingLiability ? 'Edit Loan & Liability' : 'Add New Loan / Liability'}
               </h2>
               <p className="text-xs text-slate-400">
@@ -237,7 +240,7 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-4 flex-1 overflow-y-auto touch-scroll">
           
           {/* AI / Document Drag & Drop Scanner Banner */}
           {!editingLiability && (
@@ -596,18 +599,21 @@ export const LiabilityModal: React.FC<LiabilityModalProps> = ({
               />
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+            {/* Action Buttons - Sticky Bottom on Mobile with Safe Area */}
+            <div 
+              className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-3 border-t border-slate-800 flex items-center justify-end gap-3 z-10 shrink-0"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+            >
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+                className="px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-colors active:scale-95"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 text-xs font-bold bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white rounded-xl shadow-lg shadow-rose-500/20 transition-all flex items-center gap-2"
+                className="px-5 py-2.5 text-xs font-bold bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white rounded-xl shadow-lg shadow-rose-500/20 transition-all flex items-center gap-2 active:scale-95"
               >
                 {editingLiability ? 'Update Loan' : 'Save Loan'}
               </button>
