@@ -475,6 +475,7 @@ export const App: React.FC = () => {
                   allocations={summary.allocations}
                   totalAssetsCount={assets.length}
                   totalCurrentValue={summary.totalCurrentValue}
+                  totalInvested={summary.totalInvested}
                 />
 
                 {/* Assets List & Grid */}

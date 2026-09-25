@@ -9,6 +9,7 @@ interface AllocationPillsProps {
   allocations: AssetAllocation[];
   totalAssetsCount: number;
   totalCurrentValue: number;
+  totalInvested?: number;
 }
 
 export const AllocationPills: React.FC<AllocationPillsProps> = ({
@@ -17,6 +18,7 @@ export const AllocationPills: React.FC<AllocationPillsProps> = ({
   allocations,
   totalAssetsCount,
   totalCurrentValue,
+  totalInvested = 0,
 }) => {
   const categories: {
     id: AssetType | 'ALL';
@@ -42,12 +44,18 @@ export const AllocationPills: React.FC<AllocationPillsProps> = ({
 
           let count = totalAssetsCount;
           let val = totalCurrentValue;
+          let invested = totalInvested;
 
           if (cat.id !== 'ALL') {
             const alloc = allocations.find((a) => a.assetType === cat.id);
             count = alloc?.assetCount || 0;
             val = alloc?.currentValue || 0;
+            invested = alloc?.investedValue || 0;
           }
+
+          const profitLoss = val - invested;
+          const returnPct = invested > 0 ? (profitLoss / invested) * 100 : 0;
+          const isPositive = profitLoss >= 0;
 
           return (
             <button
@@ -69,8 +77,15 @@ export const AllocationPills: React.FC<AllocationPillsProps> = ({
                     {count}
                   </span>
                 </div>
-                <div className="text-[11px] text-slate-400 font-medium mt-1">
-                  {formatINR(val)}
+                <div className="text-[11px] text-slate-400 font-medium mt-1 flex items-center gap-1.5">
+                  <span>{formatINR(val)}</span>
+                  {invested > 0 && (
+                    <span className={`text-[10px] font-mono font-bold ${
+                      isPositive ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
+                      {isPositive ? '+' : ''}{returnPct.toFixed(1)}%
+                    </span>
+                  )}
                 </div>
               </div>
             </button>
