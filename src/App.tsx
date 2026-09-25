@@ -26,19 +26,21 @@ import {
 import { fetchCurrentRates, loadHistoricalRates } from './services/ratesService';
 import { AuthService, UserProfile } from './services/auth';
 import { subscribeToUserPortfolio, savePortfolioToFirestore } from './services/firestoreService';
-import { calculateAssetMetrics, computePortfolioSummary, calculateLiabilityMetrics, formatINR } from './utils/calculations';
-import { Loader2, Plus, Building2, Layers, AlertCircle } from 'lucide-react';
+import { calculateAssetMetrics, computePortfolioSummary, calculateLiabilityMetrics, formatINR, formatNumber } from './utils/calculations';
+import { Loader2, Plus, Building2, Layers, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(() => AuthService.getInitialUser());
   const [rates, setRates] = useState<MetalRates>({
-    gold: 16408,
-    gold24k: 16408,
-    gold22k: 15030,
-    silver: 257,
+    gold: 15295,
+    gold24k: 15295,
+    gold22k: 14010,
+    silver: 238,
     lastUpdated: new Date().toISOString(),
-    source: 'Karnataka Bullion Market',
+    source: 'Karnataka Bullion Market / Bengaluru',
+    isManual: false,
   });
+  const [syncNotification, setSyncNotification] = useState<string | null>(null);
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [liabilities, setLiabilities] = useState<Liability[]>([]);
@@ -146,7 +148,15 @@ export const App: React.FC = () => {
       if (currentUser) {
         unsubscribeFirestore = subscribeToUserPortfolio(currentUser.uid, (cloudAssets, cloudRates, cloudLiabilities) => {
           if (cloudAssets && Array.isArray(cloudAssets)) {
-            const effectiveRates = cloudRates || ratesRef.current;
+            // Respect cloudRates ONLY if the user explicitly set a manual custom rate in RatesModal.
+            // Otherwise, keep the live market rates from ratesRef.current so stale cloud rates never overwrite live rates!
+            let effectiveRates = ratesRef.current;
+            if (cloudRates && cloudRates.isManual) {
+              effectiveRates = cloudRates;
+              setRates(cloudRates);
+            } else if (ratesRef.current) {
+              effectiveRates = ratesRef.current;
+            }
             refreshPortfolio(cloudAssets, effectiveRates, currentUser.uid, cloudLiabilities);
           }
         });
@@ -350,12 +360,19 @@ export const App: React.FC = () => {
     try {
       const updated = await syncLiveMarketRates();
       setRates(updated);
+      ratesRef.current = updated;
+      const g24 = updated.gold24k || updated.gold;
+      const g22 = updated.gold22k || Math.round(g24 * 0.916);
       refreshPortfolio(assets, updated, user ? user.uid : 'default_user', liabilities);
       if (user) {
         savePortfolioToFirestore(user.uid, assets, updated, liabilities);
       }
+      setSyncNotification(`Live Bullion Rates Synced: 24K ₹${formatNumber(g24, 0)}/g | 22K ₹${formatNumber(g22, 0)}/g | Silver ₹${formatNumber(updated.silver, 0)}/g`);
+      setTimeout(() => setSyncNotification(null), 4500);
     } catch (e) {
       console.warn('Sync failed:', e);
+      setSyncNotification('Unable to sync live rates. Using current rates.');
+      setTimeout(() => setSyncNotification(null), 4000);
     } finally {
       setIsSyncingRates(false);
     }
@@ -628,6 +645,18 @@ export const App: React.FC = () => {
         assets={assets}
         onImportSuccess={handleImportSuccess}
       />
+
+      {/* Live Rates Sync Floating Toast */}
+      {syncNotification && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-slate-900 border border-emerald-500/50 text-white px-4 py-3 rounded-2xl shadow-2xl shadow-emerald-500/10 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <p className="text-xs font-semibold text-slate-100 leading-tight">
+            {syncNotification}
+          </p>
+        </div>
+      )}
 
       {/* Footer with Live Build & Git Commit Hash */}
       <footer className="border-t border-slate-800/80 bg-slate-900/60 py-5 text-center text-xs text-slate-500">

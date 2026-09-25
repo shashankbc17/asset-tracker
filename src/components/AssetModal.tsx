@@ -52,7 +52,7 @@ export const AssetModal: React.FC<AssetModalProps> = ({
   const [categoryType, setCategoryType] = useState<CategoryType>('COIN_BAR');
   const [goldPurity, setGoldPurity] = useState<'22K' | '24K'>('22K');
   const [grams, setGrams] = useState<number | ''>(10);
-  const [rateBought, setRateBought] = useState<number | ''>(rates.gold24k || rates.gold || 16408);
+  const [rateBought, setRateBought] = useState<number | ''>(rates.gold22k || (rates.gold24k ? Math.round(rates.gold24k * 0.916) : 14010));
   const [deduction, setDeduction] = useState<number | ''>(0);
   const [suggestedRateNote, setSuggestedRateNote] = useState<string | null>(null);
 
@@ -103,7 +103,10 @@ export const AssetModal: React.FC<AssetModalProps> = ({
       setCategoryType(cType);
       setGoldPurity(initialPurity);
       setGrams(g);
-      setRateBought(editingAsset.rateBought ?? (rates.gold24k || 16408));
+      const defaultRate = initialPurity === '24K' 
+        ? (rates.gold24k || rates.gold || 15295) 
+        : (rates.gold22k || (rates.gold24k ? Math.round(rates.gold24k * 0.916) : 14010));
+      setRateBought(editingAsset.rateBought ?? defaultRate);
       setDeduction(editingAsset.deduction ?? (cType === 'JEWELRY' ? 4 : 0));
 
       // If it's a coin, immediately force the standardized coin name so old jewelry names never appear!
@@ -144,7 +147,7 @@ export const AssetModal: React.FC<AssetModalProps> = ({
       setName(computeAutoCoinName('GOLD', 10, '22K'));
       setPurchaseDate(new Date().toISOString().split('T')[0]);
       setNotes('');
-      setRateBought(rates.gold24k || rates.gold || 16408);
+      setRateBought(rates.gold22k || (rates.gold24k ? Math.round(rates.gold24k * 0.916) : 14010));
       setSuggestedRateNote(null);
       setGoldPurity('22K');
       setMetalType('GOLD');

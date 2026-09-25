@@ -167,6 +167,7 @@ export interface MetalRates {
   source?: string;
   state?: string;
   city?: string;
+  isManual?: boolean;
 }
 
 export interface HistoricalRateRecord {

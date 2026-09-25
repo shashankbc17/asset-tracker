@@ -201,7 +201,10 @@ export function calculateAssetMetrics(asset: Asset, rates: MetalRates, refDate: 
       const cat = asset.categoryType || 'COIN_BAR';
 
       invested = grams * rateBought;
-      const currentSpot = metal === 'GOLD' ? (rates.gold24k || rates.gold || 16408) : (rates.silver || 257);
+      const g24 = rates.gold24k || rates.gold || 15295;
+      const g22 = rates.gold22k || Math.round(g24 * 0.916) || 14010;
+      const is24k = cat === 'COIN_BAR' && (Boolean(asset.name?.includes('24K')) || Boolean(asset.name?.toLowerCase().includes('bar')) || Boolean(asset.name?.includes('99.99')) || Boolean(asset.name?.includes('999')));
+      const currentSpot = metal === 'GOLD' ? (is24k ? g24 : g22) : (rates.silver || 238);
       grossValue = grams * currentSpot;
       currentValue = grossValue - (grossValue * (deduction / 100));
 

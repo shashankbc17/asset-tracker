@@ -21,12 +21,12 @@ export const RatesModal: React.FC<RatesModalProps> = ({
   onSyncLive,
   isSyncing,
 }) => {
-  const [gold24k, setGold24k] = useState(rates.gold24k || rates.gold || 16408);
-  const [silver, setSilver] = useState(rates.silver || 257);
+  const [gold24k, setGold24k] = useState(rates.gold24k || rates.gold || 15295);
+  const [silver, setSilver] = useState(rates.silver || 238);
 
   useEffect(() => {
-    setGold24k(rates.gold24k || rates.gold || 16408);
-    setSilver(rates.silver || 257);
+    setGold24k(rates.gold24k || rates.gold || 15295);
+    setSilver(rates.silver || 238);
   }, [rates, isOpen]);
 
   if (!isOpen) return null;
@@ -74,7 +74,11 @@ export const RatesModal: React.FC<RatesModalProps> = ({
               </div>
               <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
                 <Clock className="w-3.5 h-3.5" />
-                <span>{rates.lastUpdated ? new Date(rates.lastUpdated).toLocaleDateString() : 'Today'}</span>
+                <span>
+                  {rates.lastUpdated 
+                    ? `${new Date(rates.lastUpdated).toLocaleDateString()} ${new Date(rates.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` 
+                    : 'Live Today'}
+                </span>
               </div>
             </div>
 

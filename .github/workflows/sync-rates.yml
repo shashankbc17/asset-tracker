@@ -2,8 +2,8 @@ name: Auto-Sync Live Bangalore Metal Rates
 
 on:
   schedule:
-    # Runs twice daily at 10:00 AM IST (4:30 AM UTC) and 4:00 PM IST (10:30 AM UTC)
-    - cron: '30 4,10 * * *'
+    # Runs 4 times daily during market trading hours: 9:30 AM, 12:30 PM, 3:30 PM, 6:30 PM IST
+    - cron: '0 4,7,10,13 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 permissions:
@@ -27,11 +27,11 @@ jobs:
           try:
               data = json.loads('''$RESPONSE''')
               prices = data.get('data', {}).get('prices', {})
-              g22 = prices.get('gold_22kt', {}).get('price', 14950.0)
-              g24 = prices.get('gold_24kt', {}).get('price', 16321.0)
-              sil = prices.get('silver', {}).get('price', 257.0)
-              plat = prices.get('platinum', {}).get('price', 7816.0)
-              updated = data.get('data', {}).get('rate_updated_time', '2026-08-22T09:33:00')
+              g22 = prices.get('gold_22kt', {}).get('price', 14010.0)
+              g24 = prices.get('gold_24kt', {}).get('price', 15295.0)
+              sil = prices.get('silver', {}).get('price', 238.0)
+              plat = prices.get('platinum', {}).get('price', 7349.0)
+              updated = data.get('data', {}).get('rate_updated_time', '2026-09-25T09:52:00')
               
               rates = {
                   'gold_22kt': float(g22),
@@ -67,4 +67,4 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add rates.json public/rates.json src/main/resources/static/rates.json || true
-          git diff --staged --quiet || (git commit -m "⚡ Auto-sync live Bangalore Gold & Silver rates [skip ci]" && git push origin main)
+          git diff --staged --quiet || (git commit -m "⚡ Auto-sync live Bangalore Gold & Silver rates" && git push origin main)

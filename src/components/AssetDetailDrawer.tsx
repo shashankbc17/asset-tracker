@@ -174,7 +174,14 @@ export const AssetDetailDrawer: React.FC<AssetDetailDrawerProps> = ({
                     <div className="p-3.5 flex items-center justify-between">
                       <span className="text-slate-400">Current Spot Rate</span>
                       <span className="font-semibold text-amber-400 font-mono">
-                        ₹{formatNumber(asset.metalType === 'GOLD' ? (rates.gold24k || rates.gold) : rates.silver, 0)}/g
+                        ₹{formatNumber(
+                          asset.metalType === 'GOLD'
+                            ? (asset.name?.includes('24K') || asset.name?.toLowerCase().includes('bar')
+                                ? (rates.gold24k || rates.gold || 15295)
+                                : (rates.gold22k || (rates.gold24k ? Math.round(rates.gold24k * 0.916) : 14010)))
+                            : (rates.silver || 238),
+                          0
+                        )}/g
                       </span>
                     </div>
                     {asset.deduction ? (

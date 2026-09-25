@@ -419,6 +419,7 @@ export async function getNetWorthSummary(
 }
 
 export async function syncLiveMarketRates(): Promise<MetalRates> {
+  // First try Spring Boot if in local dev
   try {
     const res = await fetch('/api/portfolio/rates/sync', { method: 'POST' });
     const ct = res.headers.get('content-type') || '';
@@ -431,12 +432,13 @@ export async function syncLiveMarketRates(): Promise<MetalRates> {
         silver: data.silverRate || data.silver,
         lastUpdated: data.lastUpdated || new Date().toISOString(),
         source: 'Live Bangalore Rates Sync',
+        isManual: false,
       };
     }
   } catch {
-    // Fallback
+    // Expected on static hosting
   }
-  return await fetchCurrentRates();
+  return await fetchCurrentRates(true);
 }
 
 export async function updateManualRates(rates: { gold: number; silver: number }): Promise<MetalRates> {
@@ -452,10 +454,11 @@ export async function updateManualRates(rates: { gold: number; silver: number })
       return {
         gold: data.goldRate || data.gold,
         gold24k: data.gold24k || data.goldRate,
-        gold22k: data.gold22k || data.gold * 0.916,
+        gold22k: data.gold22k || Math.round(data.gold * 0.916),
         silver: data.silverRate || data.silver,
         lastUpdated: new Date().toISOString(),
         source: 'Custom User Rate',
+        isManual: true,
       };
     }
   } catch {
@@ -464,10 +467,11 @@ export async function updateManualRates(rates: { gold: number; silver: number })
   return {
     gold: rates.gold,
     gold24k: rates.gold,
-    gold22k: rates.gold * 0.916,
+    gold22k: Math.round(rates.gold * 0.916),
     silver: rates.silver,
     lastUpdated: new Date().toISOString(),
     source: 'Custom User Rate',
+    isManual: true,
   };
 }
 
