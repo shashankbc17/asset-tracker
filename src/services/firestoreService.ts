@@ -58,8 +58,21 @@ export function subscribeToUserPortfolio(
             onUpdate(assets, data.rates, liabilities);
           } else {
             // Document doesn't exist yet on cloud
-            const cachedAssets = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${uid}`) || localStorage.getItem(`wealth_assets_${uid}`);
-            const cachedLiabilities = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${uid}`);
+            let cachedAssets = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${uid}`) || localStorage.getItem(`wealth_assets_${uid}`);
+            let cachedLiabilities = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_${uid}`);
+            
+            // MIGRATION: If the user just logged in for the first time, migrate their guest data
+            if (!cachedAssets && !cachedLiabilities) {
+              const guestAssets = localStorage.getItem(`${LOCAL_STORAGE_KEY}_default_user`);
+              const guestLiabilities = localStorage.getItem(`${LOCAL_STORAGE_LIABILITIES_KEY}_default_user`);
+              // Only migrate if it's not the generic hardcoded seed data we provide for demo
+              // We'll just take it, and the user can delete demo data if they want
+              if (guestAssets || guestLiabilities) {
+                cachedAssets = guestAssets;
+                cachedLiabilities = guestLiabilities;
+              }
+            }
+
             if (cachedAssets || cachedLiabilities) {
               try {
                 const initialPayload = sanitizeForFirestore({

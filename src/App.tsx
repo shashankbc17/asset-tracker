@@ -422,6 +422,40 @@ export const App: React.FC = () => {
               onOpenLiabilities={() => setMainView('LIABILITIES')}
             />
 
+            {/* Offline Data Migration Banner */}
+            {user && (
+              <div className="bg-blue-500/10 border border-blue-500/30 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner">
+                <div>
+                  <h4 className="text-blue-400 font-bold text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Restore Offline Data
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    If you added data as a guest before logging in, you can pull it into your account now.
+                  </p>
+                </div>
+                <button 
+                  onClick={async () => {
+                    if (window.confirm('This will grab offline (Guest) data from this device and merge it into your Google account. Proceed?')) {
+                      const [guestAssets, guestLiabs] = await Promise.all([
+                        getAssets('default_user', rates),
+                        getLiabilities('default_user'),
+                      ]);
+                      const combinedAssets = [...assets, ...guestAssets.filter(ga => !assets.some(a => a.id === ga.id))];
+                      const combinedLiabs = [...liabilities, ...guestLiabs.filter(gl => !liabilities.some(l => l.id === gl.id))];
+                      refreshPortfolio(combinedAssets, rates, user.uid, combinedLiabs);
+                      await savePortfolioToFirestore(user.uid, combinedAssets, rates, combinedLiabs);
+                      alert('Sync complete! Your offline data is now in your account.');
+                    }
+                  }} 
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded-xl text-xs font-bold transition-all whitespace-nowrap w-full sm:w-auto text-center"
+                >
+                  Force Sync Guest Data
+                </button>
+              </div>
+            )}
+
+
             {/* 2. Main View Segmented Toggle: Assets vs Liabilities */}
             <div className="flex items-center justify-between gap-2 sm:gap-3 border-b border-slate-800/80 pb-3 pt-2">
               <div className="flex-1 sm:flex-initial flex items-center gap-1 sm:gap-2 bg-slate-900/90 p-1 sm:p-1.5 rounded-2xl border border-slate-800 shadow-inner">
